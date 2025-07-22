@@ -1,65 +1,60 @@
-import { NextResponse } from "next/server"
 
-export async function GET() {
+import { NextRequest, NextResponse } from "next/server"
+import { neon } from "@neondatabase/serverless"
+
+export async function GET(request: NextRequest) {
   try {
     if (!process.env.DATABASE_URL) {
       return NextResponse.json(
         {
           status: "error",
-          database: "no-url",
-          message: "DATABASE_URL not configured",
-          timestamp: new Date().toISOString(),
+          database: "not_configured",
+          message: "DATABASE_URL environment variable yoxdur",
         },
-        { status: 503 },
+        { status: 503 }
       )
     }
 
-    const { neon } = await import("@neondatabase/serverless")
     const sql = neon(process.env.DATABASE_URL)
-
-    // Test basic connection
+    
+    // Test database connection
     await sql`SELECT 1`
-
-    // Test if bot_stats table exists
-    const tableCheck = await sql`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'bot_stats'
-      )
+    
+    // Check if tables exist
+    const tablesExist = await sql`
+      SELECT COUNT(*) as count 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('bot_stats', 'trades', 'system_logs')
     `
 
-    if (!tableCheck[0].exists) {
+    const tableCount = Number(tablesExist[0]?.count || 0)
+
+    if (tableCount >= 3) {
       return NextResponse.json({
-        status: "needs-init",
+        status: "healthy",
         database: "connected",
-        tables: "missing",
-        message: "Database connected but tables need to be created",
-        timestamp: new Date().toISOString(),
+        message: "Database aktiv və cədvəllər mövcuddur",
+        tables: tableCount
+      })
+    } else {
+      return NextResponse.json({
+        status: "warning",
+        database: "tables_missing",
+        message: "Database bağlıdır amma bəzi cədvəllər yoxdur",
+        tables: tableCount
       })
     }
 
-    // Try to get stats
-    const stats = await sql`SELECT * FROM bot_stats LIMIT 1`
-
-    return NextResponse.json({
-      status: "healthy",
-      database: "connected",
-      tables: "accessible",
-      stats: stats.length > 0 ? stats[0] : null,
-      timestamp: new Date().toISOString(),
-    })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Database health check failed:", error)
-
     return NextResponse.json(
       {
         status: "error",
-        database: "error",
-        error: error.message,
-        timestamp: new Date().toISOString(),
+        database: "connection_failed",
+        message: `Database bağlantı xətası: ${error.message}`,
       },
-      { status: 503 },
+      { status: 503 }
     )
   }
 }

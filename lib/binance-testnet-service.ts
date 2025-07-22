@@ -78,8 +78,8 @@ export class BinanceTestnetService {
     this.apiSecret = process.env.BINANCE_API_SECRET || ""
 
     if (!this.apiKey || !this.apiSecret) {
-      throw new Error(
-        "Binance API credentials are required. Please set BINANCE_API_KEY and BINANCE_API_SECRET environment variables.",
+      console.warn(
+        "⚠️ Binance API credentials not found. Please set BINANCE_API_KEY and BINANCE_API_SECRET environment variables to enable trading.",
       )
     }
   }

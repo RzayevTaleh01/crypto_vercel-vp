@@ -1,27 +1,25 @@
-import { NextResponse } from "next/server"
 
-export async function POST() {
+import { NextRequest, NextResponse } from "next/server"
+import { neon } from "@neondatabase/serverless"
+
+export async function POST(request: NextRequest) {
   try {
-    console.log("🚀 Starting database initialization...")
-
     if (!process.env.DATABASE_URL) {
       return NextResponse.json(
         {
           success: false,
-          error: "DATABASE_URL not configured",
-          timestamp: new Date().toISOString(),
+          error: "DATABASE_URL environment variable yoxdur. .env.local faylına əlavə edin.",
         },
-        { status: 500 },
+        { status: 400 }
       )
     }
 
-    const { neon } = await import("@neondatabase/serverless")
     const sql = neon(process.env.DATABASE_URL)
 
     // Test connection
     await sql`SELECT 1`
 
-    // Create essential tables
+    // Create tables
     const tables = [
       {
         name: "bot_stats",
@@ -52,7 +50,7 @@ export async function POST() {
             type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
             amount DECIMAL(18, 8) NOT NULL,
             price DECIMAL(18, 8) NOT NULL,
-            quantity DECIMAL(18, 8) NOT NULL,
+            quantity VARCHAR(50) NOT NULL,
             profit DECIMAL(18, 8),
             timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             status VARCHAR(10) NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
@@ -83,15 +81,13 @@ export async function POST() {
       try {
         await sql([table.sql])
         createdTables.push(table.name)
-        console.log(`✅ Created table: ${table.name}`)
-      } catch (error) {
-        console.warn(`⚠️ Table ${table.name}:`, error.message)
+      } catch (error: any) {
+        console.warn(`Table ${table.name} creation warning:`, error.message)
       }
     }
 
     // Initialize default stats
     const existingStats = await sql`SELECT id FROM bot_stats LIMIT 1`
-
     if (existingStats.length === 0) {
       await sql`
         INSERT INTO bot_stats (
@@ -99,30 +95,22 @@ export async function POST() {
           trades_count, win_rate, max_drawdown, sharpe_ratio, daily_loss
         ) VALUES (20, 2, 0, false, 0, 0, 0, 0, 0)
       `
-      console.log("✅ Initialized default bot stats")
     }
-
-    // Get final stats
-    const stats = await sql`SELECT * FROM bot_stats LIMIT 1`
 
     return NextResponse.json({
       success: true,
-      message: "Database initialized successfully",
-      createdTables,
-      stats: stats[0] || null,
-      timestamp: new Date().toISOString(),
+      message: "Database uğurla hazırlandı",
+      tables: createdTables,
     })
-  } catch (error) {
-    console.error("Database initialization failed:", error)
 
+  } catch (error: any) {
+    console.error("Database init error:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Database initialization failed",
-        details: error.message,
-        timestamp: new Date().toISOString(),
+        error: `Database init xətası: ${error.message}`,
       },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

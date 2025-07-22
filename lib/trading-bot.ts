@@ -45,7 +45,18 @@ export class TradingBot {
   private tradingInterval: NodeJS.Timeout | null = null
 
   constructor() {
-    this.binance = new BinanceTestnetService()
+    // Check environment variables before creating services
+    if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
+      console.warn("⚠️ Binance API credentials not set. Bot will not be able to trade.")
+    }
+    
+    try {
+      this.binance = new BinanceTestnetService()
+    } catch (error) {
+      console.warn("⚠️ Binance service initialization failed:", error.message)
+      this.binance = null as any
+    }
+    
     this.database = new NeonDatabaseService()
     this.telegram = new TelegramService()
     this.analyzer = new MarketAnalyzer()

@@ -178,9 +178,20 @@ export default function TradingBotDashboard() {
       if (data.success) {
         setDbStatus({ status: "healthy", database: "connected", message: "İnisializasiya edildi" })
         await fetchStats()
+        toast({
+          title: "✅ Database hazır",
+          description: "Database uğurla quruldu və hazırdır",
+        })
+      } else {
+        throw new Error(data.error || "Database init xətası")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Database init xətası:", error)
+      toast({
+        title: "❌ Database xətası",
+        description: error.message || "Database qurula bilmədi",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }

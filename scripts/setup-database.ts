@@ -1,3 +1,4 @@
+
 import { neon } from "@neondatabase/serverless"
 
 async function setupDatabase() {
@@ -19,7 +20,7 @@ async function setupDatabase() {
 
     console.log("📋 Creating tables...")
 
-    // Create tables one by one
+    // Create tables one by one with error handling
     const tables = [
       {
         name: "bot_stats",
@@ -50,12 +51,35 @@ async function setupDatabase() {
             type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
             amount DECIMAL(18, 8) NOT NULL,
             price DECIMAL(18, 8) NOT NULL,
-            quantity DECIMAL(18, 8) NOT NULL,
+            quantity VARCHAR(50) NOT NULL,
             profit DECIMAL(18, 8),
             timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             status VARCHAR(10) NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
             order_id BIGINT,
             fees DECIMAL(18, 8) DEFAULT 0,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          )
+        `,
+      },
+      {
+        name: "bot_config",
+        sql: `
+          CREATE TABLE IF NOT EXISTS bot_config (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            initial_capital DECIMAL(18, 2) NOT NULL,
+            trade_percentage DECIMAL(5, 2) NOT NULL,
+            buy_threshold DECIMAL(5, 2) NOT NULL,
+            sell_threshold DECIMAL(5, 2) NOT NULL,
+            telegram_enabled BOOLEAN DEFAULT false,
+            max_daily_loss DECIMAL(5, 2) DEFAULT 10,
+            max_open_trades INTEGER DEFAULT 5,
+            stop_loss_percentage DECIMAL(5, 2) DEFAULT 5,
+            trading_pairs TEXT[] DEFAULT ARRAY['BTCUSDT', 'ETHUSDT', 'BNBUSDT'],
+            use_rsi BOOLEAN DEFAULT true,
+            use_macd BOOLEAN DEFAULT true,
+            use_sma BOOLEAN DEFAULT true,
+            is_active BOOLEAN DEFAULT false,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
           )
@@ -74,14 +98,55 @@ async function setupDatabase() {
           )
         `,
       },
+      {
+        name: "market_data",
+        sql: `
+          CREATE TABLE IF NOT EXISTS market_data (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            symbol VARCHAR(20) NOT NULL,
+            price DECIMAL(18, 8) NOT NULL,
+            price_change_percent DECIMAL(8, 4) NOT NULL,
+            volume DECIMAL(20, 8) NOT NULL,
+            high DECIMAL(18, 8) NOT NULL,
+            low DECIMAL(18, 8) NOT NULL,
+            open_price DECIMAL(18, 8) NOT NULL,
+            bid_price DECIMAL(18, 8),
+            ask_price DECIMAL(18, 8),
+            rsi DECIMAL(8, 4),
+            macd_signal VARCHAR(10),
+            sma_signal VARCHAR(10),
+            volatility DECIMAL(8, 4),
+            timestamp TIMESTAMPTZ DEFAULT NOW(),
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          )
+        `,
+      },
     ]
 
     for (const table of tables) {
       try {
         await sql([table.sql])
         console.log(`✅ Created table: ${table.name}`)
-      } catch (error) {
+      } catch (error: any) {
         console.warn(`⚠️ Table ${table.name}:`, error.message)
+      }
+    }
+
+    // Create indexes
+    const indexes = [
+      "CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)",
+      "CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)",
+      "CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)",
+      "CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp)",
+      "CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level)",
+    ]
+
+    for (const indexSql of indexes) {
+      try {
+        await sql([indexSql])
+        console.log("✅ Created index")
+      } catch (error: any) {
+        console.warn("⚠️ Index creation:", error.message)
       }
     }
 
@@ -101,7 +166,7 @@ async function setupDatabase() {
       } else {
         console.log("✅ Bot stats already exist")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn("⚠️ Stats initialization:", error.message)
     }
 
@@ -120,8 +185,9 @@ async function setupDatabase() {
       throw new Error("Stats table is empty")
     }
 
+    console.log("\n🎉 Database hazırdır! İndi botu işə sala bilərsiniz.")
     process.exit(0)
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Database setup failed:", error.message)
     console.log("\n🔧 Troubleshooting:")
     console.log("1. Check your DATABASE_URL in .env.local")
