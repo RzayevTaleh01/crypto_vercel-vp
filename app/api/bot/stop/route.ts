@@ -9,9 +9,7 @@ export async function POST() {
     // Check if bot is running first
     let isCurrentlyRunning = false
     try {
-      const botInstance = await import("@/lib/trading-bot")
-      const tradingBot = botInstance.default || botInstance
-      isCurrentlyRunning = await tradingBot.isBotRunning()
+      isCurrentlyRunning = await isBotRunning()
       console.log(`Bot hazırda işləyir: ${isCurrentlyRunning}`)
     } catch (statusError) {
       console.log("Status yoxlama xətası, davam edirik:", statusError.message)
@@ -28,10 +26,26 @@ export async function POST() {
       })
     }
 
-    // Stop the bot
-    console.log("🛑 Bot dayandırılır...")
-    const result = await stopBot()
-    console.log("✅ Bot dayandırma tamamlandı:", result)
+    // Stop the bot with force if needed
+    console.log("🛑 Bot məcburi dayandırılır...")
+    let result
+    try {
+      result = await stopBot()
+      console.log("✅ Bot dayandırma tamamlandı:", result)
+    } catch (stopError) {
+      console.log("⚠️ Normal dayandırma uğursuz, məcburi dayandırma həyata keçirilir:", stopError.message)
+      // Force database status update
+      try {
+        const { NeonDatabaseService } = await import("@/lib/neon-database-service")
+        const database = new NeonDatabaseService()
+        await database.updateBotStatus(false)
+        await database.addLog("WARNING", "Bot məcburi dayandırıldı - API vasitəsilə")
+        result = { success: true, message: "Bot məcburi dayandırıldı", wasRunning: true }
+      } catch (forceError) {
+        console.error("Məcburi dayandırma da uğursuz:", forceError)
+        throw stopError
+      }
+    }
 
     return NextResponse.json({
       success: true,
