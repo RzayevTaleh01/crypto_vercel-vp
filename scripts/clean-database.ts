@@ -1,5 +1,9 @@
 
 import { neon } from "@neondatabase/serverless"
+import { config } from "dotenv"
+
+// Load environment variables from .env.local
+config({ path: ".env.local" })
 
 async function cleanDatabase() {
   console.log("🧹 Cleaning database...")

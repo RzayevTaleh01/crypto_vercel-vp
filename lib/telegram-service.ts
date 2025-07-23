@@ -1,3 +1,10 @@
+import { config } from "dotenv"
+
+// Load environment variables if not in Next.js runtime
+if (typeof window === 'undefined' && !process.env.VERCEL) {
+  config({ path: ".env.local" })
+}
+
 export class TelegramService {
   private botToken: string
   private chatId: string

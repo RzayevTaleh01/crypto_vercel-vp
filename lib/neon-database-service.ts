@@ -1,4 +1,10 @@
 import { neon } from "@neondatabase/serverless"
+import { config } from "dotenv"
+
+// Load environment variables if not in Next.js runtime
+if (typeof window === 'undefined' && !process.env.VERCEL) {
+  config({ path: ".env.local" })
+}
 
 interface Trade {
   id: string
@@ -324,7 +330,7 @@ export class NeonDatabaseService {
 
     // Create indexes individually with proper syntax
     console.log("📋 Creating indexes...")
-    
+
     try {
       await this.sql`CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)`
       console.log("✅ Created index: idx_trades_symbol")
@@ -406,7 +412,7 @@ export class NeonDatabaseService {
 
     // Create triggers individually with proper syntax
     console.log("📋 Creating triggers...")
-    
+
     try {
       await this.sql`DROP TRIGGER IF EXISTS update_trades_updated_at ON trades`
       await this.sql`CREATE TRIGGER update_trades_updated_at BEFORE UPDATE ON trades
@@ -929,7 +935,7 @@ export class NeonDatabaseService {
   async recordDailyPerformance() {
     await this.ensureInitialized()
 
-    try {
+try {
       const stats = await this.getStats()
       const today = new Date().toISOString().split("T")[0]
 

@@ -1,4 +1,8 @@
+Adding dotenv configuration to BinanceTestnetService to load environment variables.
+```
+```replit_final_file>
 import crypto from "crypto"
+import { config } from "dotenv"
 
 interface TickerData {
   symbol: string
@@ -64,6 +68,11 @@ interface KlineData {
   numberOfTrades: number
   takerBuyBaseAssetVolume: string
   takerBuyQuoteAssetVolume: string
+}
+
+// Load environment variables if not in Next.js runtime
+if (typeof window === 'undefined' && !process.env.VERCEL) {
+  config({ path: ".env.local" })
 }
 
 export class BinanceTestnetService {
