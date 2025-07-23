@@ -769,6 +769,3 @@ export const getCurrentTradingPairs = () => getTradingBot().getCurrentTradingPai
 export const getPairSelectionStats = () => getTradingBot().getPairSelectionStats()
 export const refreshTradingPairs = () => getTradingBot().refreshTradingPairs()
 export const getAnalysisStatus = () => getTradingBot().getAnalysisStatus()
-
-// Export the class for direct access if needed
-export { TradingBot }
