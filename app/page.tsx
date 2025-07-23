@@ -122,10 +122,23 @@ export default function TradingBotDashboard() {
   const fetchStats = async () => {
     try {
       const response = await fetch("/api/bot/balance")
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
       const data = await response.json()
       setStats(data)
     } catch (error) {
       console.error("Stats xətası:", error)
+      // Set default stats if API fails
+      setStats({
+        totalCapital: 20,
+        tradingCapital: 2,
+        totalProfit: 0,
+        isRunning: false,
+        tradesCount: 0,
+        winRate: 0,
+        maxDrawdown: 0,
+      })
     }
   }
 

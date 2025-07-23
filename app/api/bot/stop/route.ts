@@ -2,90 +2,50 @@ import { NextResponse } from "next/server"
 
 export async function POST() {
   try {
+    console.log("🛑 Bot dayandırma API çağırıldı")
+
     const { stopBot, isBotRunning } = await import("@/lib/trading-bot")
-    
-    // Check current status first
+
+    // Check if bot is running first
     let isCurrentlyRunning = false
     try {
       isCurrentlyRunning = await isBotRunning()
+      console.log(`Bot hazırda işləyir: ${isCurrentlyRunning}`)
     } catch (statusError) {
-      console.warn("Status check failed, proceeding with stop attempt:", statusError)
-      // If status check fails, assume bot might be running and proceed with stop
-      isCurrentlyRunning = true
+      console.log("Status yoxlama xətası, davam edirik:", statusError.message)
     }
-    
+
+    // If not running, return success immediately
     if (!isCurrentlyRunning) {
+      console.log("✅ Bot artıq dayandırılıb")
       return NextResponse.json({
         success: true,
         message: "Bot artıq dayandırılıb",
         wasRunning: false,
-        finalStatus: "ALREADY_STOPPED"
+        timestamp: new Date().toISOString()
       })
     }
-    
-    // Multiple stop attempts with increasing delays
-    let result
-    let attempts = 0
-    const maxAttempts = 3
-    
-    for (attempts = 0; attempts < maxAttempts; attempts++) {
-      try {
-        console.log(`Stop attempt ${attempts + 1}/${maxAttempts}`)
-        result = await stopBot()
-        
-        // Wait a bit before checking status
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        
-        // Check if successfully stopped
-        try {
-          const stillRunning = await isBotRunning()
-          if (!stillRunning) {
-            console.log(`Bot successfully stopped on attempt ${attempts + 1}`)
-            break
-          }
-        } catch (checkError) {
-          console.log(`Status check failed but assuming stopped on attempt ${attempts + 1}`)
-          break
-        }
-        
-        if (attempts < maxAttempts - 1) {
-          console.log(`Bot still running, waiting before retry...`)
-          await new Promise(resolve => setTimeout(resolve, 2000))
-        }
-      } catch (stopError) {
-        console.error(`Stop attempt ${attempts + 1} failed:`, stopError)
-        if (attempts === maxAttempts - 1) {
-          throw stopError
-        }
-      }
-    }
-    
-    // Final status check
-    let finalStatus = "STOPPED"
-    try {
-      const isStillRunning = await isBotRunning()
-      finalStatus = isStillRunning ? "FORCE_STOPPED_PARTIAL" : "STOPPED"
-    } catch (finalCheckError) {
-      console.warn("Final status check failed:", finalCheckError)
-      finalStatus = "STOPPED"
-    }
-    
+
+    // Stop the bot
+    console.log("🛑 Bot dayandırılır...")
+    const result = await stopBot()
+    console.log("✅ Bot dayandırma tamamlandı:", result)
+
     return NextResponse.json({
       success: true,
-      message: "Bot dayandırma prosesi tamamlandı",
+      message: "Bot uğurla dayandırıldı",
       wasRunning: true,
-      finalStatus,
-      attempts: attempts + 1,
-      result
+      result,
+      timestamp: new Date().toISOString()
     })
-    
-  } catch (error) {
-    console.error("Bot dayandırma kritik xətası:", error)
+
+  } catch (error: any) {
+    console.error("🚨 Bot dayandırma kritik xətası:", error)
     return NextResponse.json(
       {
         success: false,
         error: "Bot dayandırıla bilmədi",
-        details: error instanceof Error ? error.message : "Naməlum xəta",
+        details: error.message || "Naməlum xəta",
         timestamp: new Date().toISOString()
       },
       { status: 500 }

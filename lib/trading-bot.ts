@@ -749,16 +749,26 @@ export class TradingBot {
 }
 
 // Singleton instance
-const tradingBot = new TradingBot()
+let tradingBotInstance: TradingBot | null = null
 
-export const startBot = (config: BotConfig) => tradingBot.start(config)
-export const stopBot = () => tradingBot.stop()
-export const getBotStats = () => tradingBot.getStats()
-export const getTradeHistory = () => tradingBot.getTradeHistory()
-export const getOpenTrades = () => tradingBot.getOpenTrades()
-export const getBotLogs = () => tradingBot.getLogs()
-export const isBotRunning = () => tradingBot.isRunning()
-export const getCurrentTradingPairs = () => tradingBot.getCurrentTradingPairs()
-export const getPairSelectionStats = () => tradingBot.getPairSelectionStats()
-export const refreshTradingPairs = () => tradingBot.refreshTradingPairs()
-export const getAnalysisStatus = () => tradingBot.getAnalysisStatus()
+function getTradingBot(): TradingBot {
+  if (!tradingBotInstance) {
+    tradingBotInstance = new TradingBot()
+  }
+  return tradingBotInstance
+}
+
+export const startBot = (config: BotConfig) => getTradingBot().start(config)
+export const stopBot = () => getTradingBot().stop()
+export const getBotStats = () => getTradingBot().getStats()
+export const getTradeHistory = () => getTradingBot().getTradeHistory()
+export const getOpenTrades = () => getTradingBot().getOpenTrades()
+export const getBotLogs = () => getTradingBot().getLogs()
+export const isBotRunning = () => getTradingBot().isRunning()
+export const getCurrentTradingPairs = () => getTradingBot().getCurrentTradingPairs()
+export const getPairSelectionStats = () => getTradingBot().getPairSelectionStats()
+export const refreshTradingPairs = () => getTradingBot().refreshTradingPairs()
+export const getAnalysisStatus = () => getTradingBot().getAnalysisStatus()
+
+// Export the class for direct access if needed
+export { TradingBot }
