@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
@@ -22,7 +21,9 @@ export async function POST() {
     await sql`SELECT 1`
     console.log("✅ Database bağlantısı uğurlu")
 
-    // Create tables
+    const createdTables: string[] = []
+
+    // Create tables one by one
     const tables = [
       {
         name: "bot_stats",
@@ -171,15 +172,13 @@ export async function POST() {
       },
     ]
 
-    const createdTables = []
     for (const table of tables) {
       try {
         await sql([table.sql])
-        createdTables.push(table.name)
         console.log(`✅ Created table: ${table.name}`)
+        createdTables.push(table.name)
       } catch (error: any) {
-        console.warn(`⚠️ Table ${table.name} creation warning:`, error.message)
-        // Continue with other tables even if one fails
+        console.warn(`⚠️ Table ${table.name}:`, error.message)
       }
     }
 
@@ -201,7 +200,7 @@ export async function POST() {
         await sql([indexSql])
         console.log("✅ Created index")
       } catch (error: any) {
-        console.warn("⚠️ Index creation warning:", error.message)
+        console.warn("⚠️ Index creation:", error.message)
       }
     }
 
@@ -272,7 +271,7 @@ export async function POST() {
       {
         success: false,
         error: `Database init xətası: ${error.message}`,
-        details: error,
+        details: error.stack,
       },
       { status: 500 }
     )

@@ -24,7 +24,7 @@ async function initializeDatabase() {
     const tables = [
       {
         name: "bot_stats",
-        sql: `
+        query: sql`
           CREATE TABLE IF NOT EXISTS bot_stats (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             total_capital DECIMAL(18, 2) NOT NULL DEFAULT 20,
@@ -44,7 +44,7 @@ async function initializeDatabase() {
       },
       {
         name: "trades",
-        sql: `
+        query: sql`
           CREATE TABLE IF NOT EXISTS trades (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             symbol VARCHAR(20) NOT NULL,
@@ -64,7 +64,7 @@ async function initializeDatabase() {
       },
       {
         name: "bot_config",
-        sql: `
+        query: sql`
           CREATE TABLE IF NOT EXISTS bot_config (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             initial_capital DECIMAL(18, 2) NOT NULL,
@@ -87,7 +87,7 @@ async function initializeDatabase() {
       },
       {
         name: "system_logs",
-        sql: `
+        query: sql`
           CREATE TABLE IF NOT EXISTS system_logs (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             level VARCHAR(10) NOT NULL CHECK (level IN ('INFO', 'ERROR', 'WARNING', 'DEBUG')),
@@ -100,7 +100,7 @@ async function initializeDatabase() {
       },
       {
         name: "market_data",
-        sql: `
+        query: sql`
           CREATE TABLE IF NOT EXISTS market_data (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             symbol VARCHAR(20) NOT NULL,
@@ -123,7 +123,7 @@ async function initializeDatabase() {
       },
       {
         name: "price_history",
-        sql: `
+        query: sql`
           CREATE TABLE IF NOT EXISTS price_history (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             symbol VARCHAR(20) NOT NULL,
@@ -141,7 +141,7 @@ async function initializeDatabase() {
       },
       {
         name: "daily_performance",
-        sql: `
+        query: sql`
           CREATE TABLE IF NOT EXISTS daily_performance (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             date DATE NOT NULL UNIQUE,
@@ -156,7 +156,7 @@ async function initializeDatabase() {
       },
       {
         name: "account_balances",
-        sql: `
+        query: sql`
           CREATE TABLE IF NOT EXISTS account_balances (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             asset VARCHAR(10) NOT NULL,
@@ -171,7 +171,7 @@ async function initializeDatabase() {
 
     for (const table of tables) {
       try {
-        await sql([table.sql])
+        await table.query
         console.log(`✅ Created table: ${table.name}`)
       } catch (error: any) {
         console.warn(`⚠️ Table ${table.name}:`, error.message)
@@ -180,20 +180,20 @@ async function initializeDatabase() {
 
     // Create indexes
     const indexes = [
-      "CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)",
-      "CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)",
-      "CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)",
-      "CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol)",
-      "CREATE INDEX IF NOT EXISTS idx_market_data_timestamp ON market_data(timestamp)",
-      "CREATE INDEX IF NOT EXISTS idx_price_history_symbol ON price_history(symbol)",
-      "CREATE INDEX IF NOT EXISTS idx_price_history_open_time ON price_history(open_time)",
-      "CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp)",
-      "CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level)",
+      sql`CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_market_data_timestamp ON market_data(timestamp)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_price_history_symbol ON price_history(symbol)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_price_history_open_time ON price_history(open_time)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level)`,
     ]
 
-    for (const indexSql of indexes) {
+    for (const indexQuery of indexes) {
       try {
-        await sql([indexSql])
+        await indexQuery
         console.log("✅ Created index")
       } catch (error: any) {
         console.warn("⚠️ Index creation:", error.message)
