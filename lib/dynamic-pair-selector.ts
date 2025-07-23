@@ -50,11 +50,14 @@ export class DynamicPairSelector {
       await this.database.addLog("INFO", "Bütün trading pairs analiz edilir...")
 
       const defaultCriteria: SelectionCriteria = {
-        minVolume: 1000000, // Minimum 1 milyon USDT günlük həcm (Testnet üçün yumşaldıldı)
-        minLiquidity: 10000, // Minimum 10K USDT likvidlik (spread əsasında, Testnet üçün yumşaldıldı)
-        maxVolatility: 20, // Maksimum 20% günlük qiymət dəyişikliyi (bir qədər daha volatil cütlüklərə icazə verilir)
-        topPairsCount: 5, // Ən yaxşı 5 cütlük seçilir
-        excludeSymbols: ["BTCDOMUSDT", "DEFIUSDT", "USDCUSDT", "BUSDUSDT", "DAIUSDT"], // Stablecoinlər və indekslər xaric edilir
+        minVolume: 500000, // Testnet üçün daha aşağı həcm tələbi (500K USDT)
+        minLiquidity: 5000, // Testnet üçün daha aşağı likvidlik tələbi (5K USDT)
+        maxVolatility: 25, // Testnet üçün daha çox volatilityə icazə (25%)
+        topPairsCount: 8, // Daha çox pair seçimi (8 ədəd)
+        excludeSymbols: [
+          "BTCDOMUSDT", "DEFIUSDT", "USDCUSDT", "BUSDUSDT", "DAIUSDT", 
+          "TUSDUSDT", "USTCUSDT", "USDPUSDT", "FDUSDUSDT" // Daha çox stablecoin xaric
+        ],
         ...criteria,
       }
 
@@ -104,7 +107,17 @@ export class DynamicPairSelector {
           !ticker.symbol.includes("UP") && // Kaldıraçlı tokenləri xaric et
           !ticker.symbol.includes("DOWN") &&
           !ticker.symbol.includes("BULL") &&
-          !ticker.symbol.includes("BEAR"),
+          !ticker.symbol.includes("BEAR") &&
+          !ticker.symbol.includes("3L") && // 3x kaldıraçlı tokenləri xaric et
+          !ticker.symbol.includes("3S") &&
+          !ticker.symbol.includes("5L") &&
+          !ticker.symbol.includes("5S") &&
+          !ticker.symbol.startsWith("AUD") && // Fiat pairləri xaric et
+          !ticker.symbol.startsWith("EUR") &&
+          !ticker.symbol.startsWith("GBP") &&
+          ticker.symbol.length <= 12 && // Çox uzun adları xaric et
+          Number(ticker.price) > 0 && // Sıfır qiymətli coinləri xaric et
+          Number(ticker.volume) > 1000 // Minimum həcm
       )
 
       await this.database.addLog("INFO", `${usdtPairs.length} USDT trading pair tapıldı`)

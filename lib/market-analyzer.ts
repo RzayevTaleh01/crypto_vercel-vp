@@ -102,20 +102,35 @@ export class MarketAnalyzer {
   }
 
   async stopAnalysis() {
+    console.log("🛑 Stopping market analysis...")
+    
+    // Immediately set running to false
     this.isRunning = false
 
+    // Clear analysis interval
     if (this.analysisInterval) {
       clearInterval(this.analysisInterval)
       this.analysisInterval = null
+      console.log("✅ Analysis interval cleared")
     }
 
+    // Clear pair update interval
     if (this.pairUpdateInterval) {
       clearInterval(this.pairUpdateInterval)
       this.pairUpdateInterval = null
+      console.log("✅ Pair update interval cleared")
     }
 
-    await this.database.addLog("INFO", "Market analysis dayandırıldı")
-    console.log("🛑 Market analysis stopped")
+    // Clear symbols array
+    this.symbols = []
+
+    try {
+      await this.database.addLog("INFO", "Market analysis dayandırıldı")
+    } catch (logError) {
+      console.warn("Failed to log analysis stop:", logError)
+    }
+
+    console.log("🛑 Market analysis stopped completely")
   }
 
   private async updateTradingPairs() {

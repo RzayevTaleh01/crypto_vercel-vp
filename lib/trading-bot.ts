@@ -63,19 +63,33 @@ export class TradingBot {
   }
 
   private async forceStop() {
+    console.log("🛑 Force stop initiated...")
+    
+    // Immediately set running to false
     this.isRunning = false
 
+    // Clear trading interval
     if (this.tradingInterval) {
       clearInterval(this.tradingInterval)
       this.tradingInterval = null
+      console.log("✅ Trading interval cleared")
     }
 
-    await this.analyzer.stopAnalysis()
+    // Stop market analyzer
+    try {
+      await this.analyzer.stopAnalysis()
+      console.log("✅ Market analyzer stopped")
+    } catch (error) {
+      console.warn("⚠️ Analyzer stop failed:", error)
+    }
 
+    // Update database status
     try {
       await this.database.updateBotStatus(false)
+      await this.database.addLog("INFO", "Bot məcburi dayandırıldı (force stop)")
+      console.log("✅ Database status updated")
     } catch (error) {
-      console.warn("Force stop database update failed:", error)
+      console.warn("⚠️ Database update failed during force stop:", error)
     }
   }
 
@@ -155,14 +169,16 @@ export class TradingBot {
       await this.database.updateBotStatus(true)
       await this.database.addLog("INFO", "Bot konfiqurasiyası saxlanıldı")
 
-      // Start dynamic market analysis
-      console.log("📈 Starting dynamic market analysis...")
-      await this.database.addLog("INFO", "Dynamic market analizi başladılır...") // Added log
+      // Start dynamic market analysis for all testnet coins
+      console.log("📈 Starting comprehensive testnet coin analysis...")
+      await this.database.addLog("INFO", "Bütün testnet coinlərinin analizi başladılır...")
       await this.analyzer.startAnalysis()
-      await this.database.addLog("INFO", "Dynamic market analizi başladı", {
-        note: "Bütün USDT pairs-ləri analiz ediləcək və ən yaxşıları seçiləcək",
+      await this.database.addLog("INFO", "Testnet coin analizi aktiv", {
+        note: "Binance Testnet-dəki bütün USDT pairs analiz edilir və ən perspektivləri seçilir",
+        selectionCriteria: "Həcm, volatility, texniki göstəricilər və likvidlik əsasında",
         updateInterval: "5 dəqiqə",
         analysisInterval: "30 saniyə",
+        maxPairs: "8 ədəd ən yaxşı"
       })
 
       // Start trading loop
@@ -213,56 +229,85 @@ export class TradingBot {
   }
 
   async stop() {
-    const dbStats = await this.database.getStats()
+    try {
+      // Check current status from database
+      let dbStats
+      try {
+        dbStats = await this.database.getStats()
+      } catch (dbError) {
+        console.warn("Database stats check failed during stop:", dbError)
+        dbStats = { isRunning: false }
+      }
 
-    if (!this.isRunning && !dbStats.isRunning) {
+      // If already stopped according to both memory and database
+      if (!this.isRunning && !dbStats.isRunning) {
+        await this.database.addLog("INFO", "Bot artıq dayandırılmış vəziyyətdə")
+        return {
+          success: true,
+          message: "Bot artıq dayandırılıb",
+          wasRunning: false,
+        }
+      }
+
+      await this.database.addLog("INFO", "Bot dayandırma prosesi başladı")
+      console.log("🛑 Starting bot stop process...")
+
+      // Force stop to ensure clean shutdown
+      await this.forceStop()
+
+      // Send final report if telegram is enabled
+      try {
+        const config = await this.database.getConfig()
+        if (config?.telegramEnabled) {
+          const finalStats = await this.database.getStats()
+          let pairStats
+          try {
+            pairStats = await this.analyzer.getCurrentPairStats()
+          } catch {
+            pairStats = { pairCount: 0, lastUpdate: "Bilinmir" }
+          }
+
+          await this.telegram.sendAlert(
+            "🛑 Dynamic Trading Bot Dayandırıldı",
+            `💰 Son Kapital: $${finalStats.totalCapital.toFixed(2)}\n` +
+              `📈 Ümumi Mənfəət: $${finalStats.totalProfit.toFixed(2)}\n` +
+              `🔢 Ümumi Trade-lər: ${finalStats.tradesCount}\n` +
+              `📊 Uğur Nisbəti: ${finalStats.winRate.toFixed(1)}%\n` +
+              `🏆 Son Seçilmiş Pairs: ${pairStats.pairCount} ədəd\n` +
+              `⏰ Son Yeniləmə: ${pairStats.lastUpdate}`,
+            "warning",
+          )
+        }
+      } catch (reportError) {
+        console.warn("Final report sending failed:", reportError)
+        await this.database.addLog("WARNING", "Son hesabat göndərilə bilmədi", {
+          error: reportError.message
+        })
+      }
+
+      await this.database.addLog("INFO", "Dynamic trading bot uğurla dayandırıldı")
+      console.log("✅ Bot stop process completed")
+
       return {
         success: true,
-        message: "Bot artıq dayandırılıb",
-        wasRunning: false,
+        message: "Dynamic bot uğurla dayandırıldı",
+        wasRunning: true,
       }
-    }
 
-    await this.database.addLog("INFO", "Bot dayandırma prosesi başladı")
-
-    // Stop everything
-    this.isRunning = false
-
-    if (this.tradingInterval) {
-      clearInterval(this.tradingInterval)
-      this.tradingInterval = null
-    }
-
-    await this.analyzer.stopAnalysis()
-    await this.database.updateBotStatus(false)
-    await this.database.addLog("INFO", "Dynamic trading bot dayandırıldı")
-
-    // Send final report
-    try {
-      const config = await this.database.getConfig()
-      if (config?.telegramEnabled) {
-        const stats = await this.database.getStats()
-        const pairStats = await this.analyzer.getCurrentPairStats()
-
-        await this.telegram.sendAlert(
-          "🛑 Dynamic Trading Bot Dayandırıldı",
-          `💰 Son Kapital: $${stats.totalCapital.toFixed(2)}\n` +
-            `📈 Ümumi Mənfəət: $${stats.totalProfit.toFixed(2)}\n` +
-            `🔢 Ümumi Trade-lər: ${stats.tradesCount}\n` +
-            `📊 Uğur Nisbəti: ${stats.winRate.toFixed(1)}%\n` +
-            `🏆 Son Seçilmiş Pairs: ${pairStats.pairCount} ədəd\n` +
-            `⏰ Son Yeniləmə: ${pairStats.lastUpdate}`,
-          "warning",
-        )
-      }
     } catch (error) {
-      console.warn("Final report failed:", error)
-    }
+      console.error("Stop method error:", error)
+      await this.database.addLog("ERROR", "Bot dayandırma xətası", {
+        error: error.message
+      })
+      
+      // Force stop as fallback
+      try {
+        await this.forceStop()
+      } catch (forceError) {
+        console.error("Force stop also failed:", forceError)
+      }
 
-    return {
-      success: true,
-      message: "Dynamic bot uğurla dayandırıldı",
-      wasRunning: true,
+      throw error
     }
   }
 
@@ -297,16 +342,18 @@ export class TradingBot {
         return
       }
 
-      // Advanced filtering and sorting
+      // Enhanced filtering for testnet coins
       const filteredResults = analysisResults.filter(analysis => {
-        // Minimum volume requirement (1M USDT)
-        const volumeOk = analysis.marketData.volume >= 1000000
-        // Price stability check
-        const volatilityOk = Math.abs(analysis.marketData.priceChangePercent) < 15
-        // Valid price data
-        const priceOk = analysis.marketData.price > 0
+        // Daha aşağı həcm tələbi testnet üçün (500K USDT)
+        const volumeOk = analysis.marketData.volume >= 500000
+        // Testnet üçün daha çox volatilityə icazə (20%)
+        const volatilityOk = Math.abs(analysis.marketData.priceChangePercent) < 20
+        // Valid price data və minimum qiymət
+        const priceOk = analysis.marketData.price > 0 && analysis.marketData.price < 100000
+        // Yaxşı technical göstəricilər
+        const technicalOk = analysis.confidence > 0 || analysis.technicalIndicators.rsi > 0
         
-        return volumeOk && volatilityOk && priceOk
+        return volumeOk && volatilityOk && priceOk && technicalOk
       })
 
       // Sort by confidence and volume
@@ -703,7 +750,7 @@ export const getBotStats = () => tradingBot.getStats()
 export const getTradeHistory = () => tradingBot.getTradeHistory()
 export const getOpenTrades = () => tradingBot.getOpenTrades()
 export const getBotLogs = () => tradingBot.getLogs()
-export const isBotRunning = () => tradingBot.isRunning()
+export const isBotRunning = async () => await tradingBot.isRunning()
 export const getCurrentTradingPairs = () => tradingBot.getCurrentTradingPairs()
 export const getPairSelectionStats = () => tradingBot.getPairSelectionStats()
 export const refreshTradingPairs = () => tradingBot.refreshTradingPairs()
