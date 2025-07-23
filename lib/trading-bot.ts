@@ -283,60 +283,98 @@ export class TradingBot {
     if (!this.config) return
 
     try {
-      await this.database.addLog("DEBUG", "Dynamic trading logic dövrü başladı")
+      await this.database.addLog("DEBUG", "Ətraflı trading logic dövrü başladı")
 
       const stats = await this.database.getStats()
       const analysisResults = await this.analyzer.getLatestAnalysis()
 
       if (analysisResults.length === 0) {
-        await this.database.addLog("WARNING", "Analiz nəticəsi yoxdur, gözləyir...")
+        await this.database.addLog("WARNING", "Analiz nəticəsi yoxdur, analyzer yenidən işləyir...")
+        // Try to restart analyzer if it's not working
+        if (!this.analyzer.isRunning()) {
+          await this.analyzer.startAnalysis()
+        }
         return
       }
 
-      // Sort by confidence for best opportunities first
-      const sortedResults = analysisResults.sort((a, b) => b.confidence - a.confidence)
+      // Advanced filtering and sorting
+      const filteredResults = analysisResults.filter(analysis => {
+        // Minimum volume requirement (1M USDT)
+        const volumeOk = analysis.marketData.volume >= 1000000
+        // Price stability check
+        const volatilityOk = Math.abs(analysis.marketData.priceChangePercent) < 15
+        // Valid price data
+        const priceOk = analysis.marketData.price > 0
+        
+        return volumeOk && volatilityOk && priceOk
+      })
 
-      await this.database.addLog("INFO", "Dynamic market analiz nəticələri", {
-        totalPairs: analysisResults.length,
-        activePairs: sortedResults.map((r) => r.symbol),
+      // Sort by confidence and volume
+      const sortedResults = filteredResults.sort((a, b) => {
+        const scoreA = a.confidence + (a.marketData.volume / 10000000) // Volume bonus
+        const scoreB = b.confidence + (b.marketData.volume / 10000000)
+        return scoreB - scoreA
+      })
+
+      await this.database.addLog("INFO", "Təkmilləşdirilmiş market analiz nəticələri", {
+        totalAnalyzed: analysisResults.length,
+        filtered: filteredResults.length,
+        activePairs: sortedResults.slice(0, 5).map((r) => r.symbol),
         topOpportunity: sortedResults[0]
           ? {
               symbol: sortedResults[0].symbol,
               signal: sortedResults[0].signals.overall,
               confidence: sortedResults[0].confidence,
+              volume: `${(sortedResults[0].marketData.volume / 1000000).toFixed(1)}M`,
             }
           : null,
       })
 
-      for (const analysis of sortedResults) {
+      // Process only top opportunities to avoid overtrading
+      const topOpportunities = sortedResults.slice(0, Math.min(5, sortedResults.length))
+
+      for (const analysis of topOpportunities) {
         try {
           const symbol = analysis.symbol
           const currentPrice = analysis.marketData.price
           const priceChange = analysis.marketData.priceChangePercent
 
-          await this.database.addLog("DEBUG", `${symbol} trading analizi`, {
+          // Advanced technical analysis validation
+          const rsi = analysis.technicalIndicators.rsi
+          const volume24h = analysis.marketData.volume / 1000000
+
+          await this.database.addLog("DEBUG", `${symbol} ətraflı analiz`, {
             price: currentPrice,
             change: priceChange,
-            volume: `${(analysis.marketData.volume / 1000000).toFixed(1)}M`,
-            rsi: analysis.technicalIndicators.rsi,
+            volume: `${volume24h.toFixed(1)}M`,
+            rsi: rsi.toFixed(1),
             signal: analysis.signals.overall,
             confidence: analysis.confidence,
+            reasons: analysis.reasons.slice(0, 2),
           })
 
-          // Enhanced buy logic with higher confidence requirement
-          if (analysis.signals.overall === "BUY" && analysis.confidence > 70) {
+          // IMPROVED BUY LOGIC
+          if (this.shouldBuy(analysis, stats)) {
             const openTrades = await this.database.getOpenTrades()
+            const symbolTrades = await this.database.getOpenTrades(symbol)
 
-            if (openTrades.length < 3) {
+            // Risk management: max 3 total trades, max 1 per symbol
+            if (openTrades.length < 3 && symbolTrades.length === 0) {
               const tradeAmount = (stats.totalCapital * this.config.tradePercentage) / 100
 
               if (tradeAmount >= 10) {
-                await this.database.addLog("INFO", `${symbol} güclü alış siqnalı aşkarlandı`, {
+                await this.database.addLog("INFO", `${symbol} ALIŞA HAZIR - ətraflı analiz`, {
                   confidence: analysis.confidence,
-                  reasons: analysis.reasons,
-                  tradeAmount,
-                  volume: `${(analysis.marketData.volume / 1000000).toFixed(1)}M USDT`,
-                  rsi: analysis.technicalIndicators.rsi,
+                  reasons: analysis.reasons.slice(0, 3),
+                  tradeAmount: tradeAmount.toFixed(2),
+                  volume: `${volume24h.toFixed(1)}M USDT`,
+                  rsi: rsi.toFixed(1),
+                  priceChange: priceChange.toFixed(2),
+                  signals: {
+                    rsi: analysis.signals.rsi,
+                    macd: analysis.signals.macd,
+                    sma: analysis.signals.sma,
+                  },
                 })
 
                 await this.executeBuy(symbol, currentPrice, tradeAmount, analysis)
@@ -344,64 +382,139 @@ export class TradingBot {
             }
           }
 
-          // Check open positions for sell with enhanced logic
+          // IMPROVED SELL LOGIC
           const openTrades = await this.database.getOpenTrades(symbol)
           for (const trade of openTrades) {
-            const profitPercent = ((currentPrice - trade.price) / trade.price) * 100
+            const sellDecision = this.shouldSell(trade, analysis, currentPrice)
 
-            let shouldSell = false
-            let sellReason = ""
-
-            // Profit target
-            if (profitPercent >= this.config.sellThreshold) {
-              shouldSell = true
-              sellReason = `Mənfəət həddi çatdı (${profitPercent.toFixed(2)}%)`
-            }
-            // Stop loss
-            else if (profitPercent <= -5) {
-              shouldSell = true
-              sellReason = `Stop loss (${profitPercent.toFixed(2)}%)`
-            }
-            // Technical analysis exit with higher confidence
-            else if (analysis.signals.overall === "SELL" && analysis.confidence > 60 && profitPercent > 0) {
-              shouldSell = true
-              sellReason = `Technical analysis güclü satış siqnalı (${analysis.confidence}% confidence)`
-            }
-            // Take profit on strong negative signals even with small profit
-            else if (analysis.signals.overall === "SELL" && analysis.confidence > 80 && profitPercent > -2) {
-              shouldSell = true
-              sellReason = `Çox güclü neqativ siqnal - erken çıxış (${analysis.confidence}% confidence)`
-            }
-
-            if (shouldSell) {
-              await this.database.addLog("INFO", `${symbol} satış qərarı`, {
-                reason: sellReason,
-                profitPercent,
+            if (sellDecision.shouldSell) {
+              await this.database.addLog("INFO", `${symbol} SATIŞA HAZIR - qərar analizi`, {
+                reason: sellDecision.reason,
+                profitPercent: sellDecision.profitPercent,
                 confidence: analysis.confidence,
-                rsi: analysis.technicalIndicators.rsi,
+                rsi: rsi.toFixed(1),
+                tradeDuration: this.getTradeDuration(trade),
               })
 
-              await this.executeSell(trade, currentPrice, analysis, sellReason)
+              await this.executeSell(trade, currentPrice, analysis, sellDecision.reason)
             }
           }
         } catch (symbolError: any) {
-          // Explicitly type symbolError as any
-          await this.database.addLog("ERROR", `${analysis.symbol} trading logic xətası`, {
+          await this.database.addLog("ERROR", `${analysis.symbol} trading xətası`, {
             error: symbolError.message,
+            stage: "symbol_processing",
           })
         }
       }
 
-      // Log current pair status
+      // Enhanced status logging
       const pairStats = await this.analyzer.getCurrentPairStats()
-      await this.database.addLog("DEBUG", "Trading loop tamamlandı", {
-        currentPairs: pairStats.currentPairs,
+      const openTrades = await this.database.getOpenTrades()
+      
+      await this.database.addLog("INFO", "Trading dövrü tamamlandı - status", {
+        processedPairs: topOpportunities.length,
+        openTrades: openTrades.length,
+        currentCapital: stats.totalCapital.toFixed(2),
+        totalProfit: stats.totalProfit.toFixed(2),
+        currentPairs: pairStats.currentPairs?.slice(0, 3) || [],
         nextPairUpdate: pairStats.nextUpdate,
       })
     } catch (error: any) {
-      // Explicitly type error as any
-      await this.database.addLog("ERROR", "Dynamic trading logic ümumi xətası", { error: error.message })
+      await this.database.addLog("ERROR", "Trading logic kritik xəta", { 
+        error: error.message,
+        stack: error.stack?.slice(0, 500),
+      })
     }
+  }
+
+  private shouldBuy(analysis: any, stats: any): boolean {
+    const { signals, confidence, technicalIndicators, marketData } = analysis
+    
+    // Multi-criteria buy decision
+    const conditions = {
+      strongSignal: signals.overall === "BUY" && confidence >= 75,
+      mediumSignal: signals.overall === "BUY" && confidence >= 60 && technicalIndicators.rsi < 35,
+      volumeGood: marketData.volume >= 1000000, // 1M USDT minimum
+      rsiOversold: technicalIndicators.rsi < 40,
+      positiveSignals: [signals.rsi, signals.macd, signals.sma].filter(s => s === "BUY").length >= 2,
+      capitalAvailable: stats.totalCapital > 50, // Minimum capital
+      priceStable: Math.abs(marketData.priceChangePercent) < 10, // Not too volatile
+    }
+
+    const buyScore = Object.values(conditions).filter(Boolean).length
+    const shouldBuy = buyScore >= 5 && (conditions.strongSignal || conditions.mediumSignal)
+
+    return shouldBuy
+  }
+
+  private shouldSell(trade: any, analysis: any, currentPrice: number): {shouldSell: boolean, reason: string, profitPercent: number} {
+    const profitPercent = ((currentPrice - trade.price) / trade.price) * 100
+    const { signals, confidence, technicalIndicators } = analysis
+    const tradeDuration = Date.now() - new Date(trade.timestamp).getTime()
+    const hoursOpen = tradeDuration / (1000 * 60 * 60)
+
+    // Stop loss - immediate
+    if (profitPercent <= -5) {
+      return {
+        shouldSell: true,
+        reason: `Zərər məhdudiyyəti (${profitPercent.toFixed(2)}%)`,
+        profitPercent
+      }
+    }
+
+    // Profit targets - tiered
+    if (profitPercent >= this.config!.sellThreshold) {
+      return {
+        shouldSell: true,
+        reason: `Mənfəət həddi çatdı (${profitPercent.toFixed(2)}%)`,
+        profitPercent
+      }
+    }
+
+    // Medium profit with strong sell signal
+    if (profitPercent >= 2 && signals.overall === "SELL" && confidence > 70) {
+      return {
+        shouldSell: true,
+        reason: `Orta mənfəət + güclü satış siqnalı (${profitPercent.toFixed(2)}%, ${confidence}% confidence)`,
+        profitPercent
+      }
+    }
+
+    // Small profit but very strong negative signals
+    if (profitPercent >= 0.5 && signals.overall === "SELL" && confidence > 85) {
+      return {
+        shouldSell: true,
+        reason: `Çox güclü neqativ siqnal - erkən çıxış (${confidence}% confidence)`,
+        profitPercent
+      }
+    }
+
+    // RSI overbought exit with profit
+    if (profitPercent > 1 && technicalIndicators.rsi > 80) {
+      return {
+        shouldSell: true,
+        reason: `RSI həddindən artıq (${technicalIndicators.rsi.toFixed(1)}) + mənfəət`,
+        profitPercent
+      }
+    }
+
+    // Time-based exit for stagnant trades
+    if (hoursOpen > 24 && profitPercent > -2 && profitPercent < 1) {
+      return {
+        shouldSell: true,
+        reason: `24 saat durğun trade - çıxış (${profitPercent.toFixed(2)}%)`,
+        profitPercent
+      }
+    }
+
+    return { shouldSell: false, reason: "", profitPercent }
+  }
+
+  private getTradeDuration(trade: any): string {
+    const duration = Date.now() - new Date(trade.timestamp).getTime()
+    const hours = Math.floor(duration / (1000 * 60 * 60))
+    const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60))
+    return `${hours}s ${minutes}d`
   }
 
   private async executeBuy(symbol: string, price: number, tradeAmount: number, analysis: any) {

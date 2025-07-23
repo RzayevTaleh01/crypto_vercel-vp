@@ -358,52 +358,106 @@ export class MarketAnalyzer {
       overall: "NEUTRAL" as "BUY" | "SELL" | "NEUTRAL",
     }
 
-    // RSI signals
+    // Advanced RSI signals with multiple levels
     if (activeIndicators?.useRSI) {
-      if (indicators.rsi < 30) {
-        signals.rsi = "BUY" // Oversold
-      } else if (indicators.rsi > 70) {
-        signals.rsi = "SELL" // Overbought
+      if (indicators.rsi < 25) {
+        signals.rsi = "BUY" // Extremely oversold
+      } else if (indicators.rsi < 35 && marketData.priceChangePercent > 0) {
+        signals.rsi = "BUY" // Oversold with positive momentum
+      } else if (indicators.rsi > 80) {
+        signals.rsi = "SELL" // Extremely overbought
+      } else if (indicators.rsi > 70 && marketData.priceChangePercent < 0) {
+        signals.rsi = "SELL" // Overbought with negative momentum
       }
     }
 
-    // MACD signals
+    // Enhanced MACD signals with histogram analysis
     if (activeIndicators?.useMACD) {
-      if (indicators.macd.macd > indicators.macd.signal && indicators.macd.histogram > 0) {
+      const { macd, signal, histogram } = indicators.macd
+      
+      // Strong bullish: MACD above signal AND histogram increasing
+      if (macd > signal && histogram > 0 && macd > 0) {
         signals.macd = "BUY"
-      } else if (indicators.macd.macd < indicators.macd.signal && indicators.macd.histogram < 0) {
+      }
+      // Strong bearish: MACD below signal AND histogram decreasing
+      else if (macd < signal && histogram < 0 && macd < 0) {
         signals.macd = "SELL"
       }
     }
 
-    // SMA signals
+    // Advanced SMA signals with trend strength
     if (activeIndicators?.useSMA) {
-      if (marketData.price > indicators.sma20 && indicators.sma20 > indicators.sma50) {
-        signals.sma = "BUY" // Price above SMA20 and SMA20 above SMA50
+      const priceSma20Diff = ((marketData.price - indicators.sma20) / indicators.sma20) * 100
+      const sma20Sma50Diff = ((indicators.sma20 - indicators.sma50) / indicators.sma50) * 100
+      
+      // Strong uptrend: Price well above SMA20, SMA20 above SMA50
+      if (priceSma20Diff > 1 && sma20Sma50Diff > 0.5) {
+        signals.sma = "BUY"
+      }
+      // Strong downtrend: Price well below SMA20, SMA20 below SMA50
+      else if (priceSma20Diff < -1 && sma20Sma50Diff < -0.5) {
+        signals.sma = "SELL"
+      }
+      // Weak signals for borderline cases
+      else if (marketData.price > indicators.sma20 && indicators.sma20 > indicators.sma50) {
+        // Weak buy - just above moving averages
       } else if (marketData.price < indicators.sma20 && indicators.sma20 < indicators.sma50) {
-        signals.sma = "SELL" // Price below SMA20 and SMA20 below SMA50
+        // Weak sell - just below moving averages
       }
     }
 
-    // Overall signal with weighted scoring
+    // Advanced overall signal calculation with context
     let buyScore = 0
     let sellScore = 0
+    let buyMultiplier = 1
+    let sellMultiplier = 1
 
-    // Weight RSI more heavily for extreme values
-    if (signals.rsi === "BUY") buyScore += indicators.rsi < 25 ? 3 : 2
-    if (signals.rsi === "SELL") sellScore += indicators.rsi > 75 ? 3 : 2
+    // Volume factor - higher volume increases signal strength
+    const volumeBonus = marketData.volume > 5000000 ? 1.2 : 1
 
-    // MACD gets standard weight
-    if (signals.macd === "BUY") buyScore += 2
-    if (signals.macd === "SELL") sellScore += 2
+    // RSI scoring with extreme value bonus
+    if (signals.rsi === "BUY") {
+      const rsiStrength = indicators.rsi < 20 ? 4 : indicators.rsi < 30 ? 3 : 2
+      buyScore += rsiStrength * volumeBonus
+    }
+    if (signals.rsi === "SELL") {
+      const rsiStrength = indicators.rsi > 85 ? 4 : indicators.rsi > 75 ? 3 : 2
+      sellScore += rsiStrength * volumeBonus
+    }
 
-    // SMA trend gets standard weight
-    if (signals.sma === "BUY") buyScore += 2
-    if (signals.sma === "SELL") sellScore += 2
+    // MACD scoring with momentum factor
+    if (signals.macd === "BUY") {
+      const macdStrength = indicators.macd.histogram > 0.001 ? 3 : 2
+      buyScore += macdStrength
+    }
+    if (signals.macd === "SELL") {
+      const macdStrength = indicators.macd.histogram < -0.001 ? 3 : 2
+      sellScore += macdStrength
+    }
 
-    if (buyScore > sellScore && buyScore >= 3) {
+    // SMA scoring with trend strength
+    if (signals.sma === "BUY") {
+      buyScore += 2.5
+    }
+    if (signals.sma === "SELL") {
+      sellScore += 2.5
+    }
+
+    // Price momentum factor
+    const momentum = Math.abs(marketData.priceChangePercent)
+    if (momentum > 2 && marketData.priceChangePercent > 0) {
+      buyMultiplier = 1.3
+    } else if (momentum > 2 && marketData.priceChangePercent < 0) {
+      sellMultiplier = 1.3
+    }
+
+    const finalBuyScore = buyScore * buyMultiplier
+    const finalSellScore = sellScore * sellMultiplier
+
+    // Higher thresholds for more confident signals
+    if (finalBuyScore > finalSellScore && finalBuyScore >= 4) {
       signals.overall = "BUY"
-    } else if (sellScore > buyScore && sellScore >= 3) {
+    } else if (finalSellScore > finalBuyScore && finalSellScore >= 4) {
       signals.overall = "SELL"
     }
 
