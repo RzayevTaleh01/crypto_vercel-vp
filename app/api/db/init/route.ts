@@ -61,7 +61,7 @@ export async function POST() {
           type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
           amount DECIMAL(18, 8) NOT NULL,
           price DECIMAL(18, 8) NOT NULL,
-          quantity VARCHAR(50) NOT NULL,
+          quantity DECIMAL(18, 8) NOT NULL,
           profit DECIMAL(18, 8),
           timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           status VARCHAR(10) NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
@@ -215,20 +215,20 @@ export async function POST() {
     // Create indexes
     console.log("📋 Creating indexes...")
     const indexes = [
-      `CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)`,
-      `CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)`,
-      `CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)`,
-      `CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol)`,
-      `CREATE INDEX IF NOT EXISTS idx_market_data_timestamp ON market_data(timestamp)`,
-      `CREATE INDEX IF NOT EXISTS idx_price_history_symbol ON price_history(symbol)`,
-      `CREATE INDEX IF NOT EXISTS idx_price_history_open_time ON price_history(open_time)`,
-      `CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp)`,
-      `CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_market_data_timestamp ON market_data(timestamp)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_price_history_symbol ON price_history(symbol)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_price_history_open_time ON price_history(open_time)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp)`,
+      sql`CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level)`,
     ]
 
-    for (const indexSql of indexes) {
+    for (const indexQuery of indexes) {
       try {
-        await sql([indexSql])
+        await indexQuery
         console.log("✅ Created index")
       } catch (error: any) {
         console.warn("⚠️ Index creation:", error.message)

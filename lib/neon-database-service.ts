@@ -300,7 +300,7 @@ export class NeonDatabaseService {
     // Create each table individually
     for (const table of tables) {
       try {
-        await this.sql([table.sql])
+        await this.sql`${table.sql}`
         console.log(`✅ Created table: ${table.name}`)
       } catch (error) {
         console.warn(`⚠️ Table ${table.name} creation failed (might already exist):`, error.message)
@@ -322,7 +322,7 @@ export class NeonDatabaseService {
 
     for (const indexSql of indexes) {
       try {
-        await this.sql([indexSql])
+        await this.sql`${indexSql}`
         console.log(`✅ Created index`)
       } catch (error) {
         console.warn(`⚠️ Index creation failed (might already exist):`, error.message)
@@ -331,8 +331,7 @@ export class NeonDatabaseService {
 
     // Create trigger function
     try {
-      await this.sql([
-        `
+      await this.sql`
         CREATE OR REPLACE FUNCTION update_updated_at_column()
         RETURNS TRIGGER AS $$
         BEGIN
@@ -340,8 +339,7 @@ export class NeonDatabaseService {
             RETURN NEW;
         END;
         $$ language 'plpgsql'
-      `,
-      ])
+      `
       console.log("✅ Created trigger function")
     } catch (error) {
       console.warn("⚠️ Trigger function creation failed:", error.message)
@@ -362,7 +360,7 @@ export class NeonDatabaseService {
 
     for (const triggerSql of triggers) {
       try {
-        await this.sql([triggerSql])
+        await this.sql`${triggerSql}`
         console.log("✅ Created/dropped trigger")
       } catch (error) {
         console.warn("⚠️ Trigger operation failed:", error.message)

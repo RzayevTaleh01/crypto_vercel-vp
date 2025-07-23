@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "db:init": "tsx scripts/init-database.ts",
+    "db:clean": "tsx scripts/clean-database.ts",
+    "db:reset": "npm run db:clean && npm run db:init",
     "db:setup": "tsx scripts/setup-database.ts"
   },
   "dependencies": {
