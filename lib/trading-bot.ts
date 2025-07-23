@@ -49,14 +49,14 @@ export class TradingBot {
     if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
       console.warn("⚠️ Binance API credentials not set. Bot will not be able to trade.")
     }
-    
+
     try {
       this.binance = new BinanceTestnetService()
     } catch (error) {
       console.warn("⚠️ Binance service initialization failed:", error.message)
       this.binance = null as any
     }
-    
+
     this.database = new NeonDatabaseService()
     this.telegram = new TelegramService()
     this.analyzer = new MarketAnalyzer()
@@ -64,7 +64,7 @@ export class TradingBot {
 
   private async forceStop() {
     console.log("🛑 Force stop initiated...")
-    
+
     // Immediately set running to false
     this.isRunning = false
 
@@ -301,7 +301,7 @@ export class TradingBot {
       await this.database.addLog("ERROR", "Bot dayandırma xətası", {
         error: error.message
       })
-      
+
       // Force stop as fallback
       try {
         await this.forceStop()
@@ -354,7 +354,7 @@ export class TradingBot {
         const priceOk = analysis.marketData.price > 0 && analysis.marketData.price < 100000
         // Yaxşı technical göstəricilər
         const technicalOk = analysis.confidence > 0 || analysis.technicalIndicators.rsi > 0
-        
+
         return volumeOk && volatilityOk && priceOk && technicalOk
       })
 
@@ -459,7 +459,7 @@ export class TradingBot {
       // Enhanced status logging
       const pairStats = await this.analyzer.getCurrentPairStats()
       const openTrades = await this.database.getOpenTrades()
-      
+
       await this.database.addLog("INFO", "Trading dövrü tamamlandı - status", {
         processedPairs: topOpportunities.length,
         openTrades: openTrades.length,
@@ -483,7 +483,7 @@ export class TradingBot {
 
   private shouldBuy(analysis: any, stats: any): boolean {
     const { signals, confidence, technicalIndicators, marketData } = analysis
-    
+
     // Multi-criteria buy decision
     const conditions = {
       strongSignal: signals.overall === "BUY" && confidence >= 75,
@@ -736,7 +736,7 @@ export class TradingBot {
   }
 
   async refreshTradingPairs(): Promise<string[]> {
-    return await this.analyzer.refreshPairs()
+    return this.analyzer.refreshPairs()
   }
 
   getAnalysisStatus() {

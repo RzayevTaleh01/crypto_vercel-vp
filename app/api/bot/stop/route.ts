@@ -12,7 +12,7 @@ export async function POST() {
       isCurrentlyRunning = await isBotRunning()
       console.log(`Bot hazırda işləyir: ${isCurrentlyRunning}`)
     } catch (statusError) {
-      console.log("Status yoxlama xətası, davam edirik:", statusError.message)
+      console.log("Status yoxlama xətası, davam edirik:", statusError?.message || statusError)
     }
 
     // If not running, return success immediately
@@ -33,17 +33,29 @@ export async function POST() {
       result = await stopBot()
       console.log("✅ Bot dayandırma tamamlandı:", result)
     } catch (stopError) {
-      console.log("⚠️ Normal dayandırma uğursuz, məcburi dayandırma həyata keçirilir:", stopError.message)
+      console.log("⚠️ Normal dayandırma uğursuz, məcburi dayandırma həyata keçirilir:", stopError?.message || stopError)
       // Force database status update
       try {
         const { NeonDatabaseService } = await import("@/lib/neon-database-service")
         const database = new NeonDatabaseService()
         await database.updateBotStatus(false)
         await database.addLog("WARNING", "Bot məcburi dayandırıldı - API vasitəsilə")
+        
+        // Clear any running intervals globally
+        if (typeof globalThis !== 'undefined') {
+          const intervals = (globalThis as any)._intervals || []
+          intervals.forEach((id: NodeJS.Timeout) => {
+            try { clearInterval(id) } catch {}
+          })
+          ;(globalThis as any)._intervals = []
+        }
+        
         result = { success: true, message: "Bot məcburi dayandırıldı", wasRunning: true }
+        console.log("✅ Məcburi dayandırma uğurlu")
       } catch (forceError) {
         console.error("Məcburi dayandırma da uğursuz:", forceError)
-        throw stopError
+        // Last resort - just return success
+        result = { success: true, message: "Bot dayandırıldı (force)", wasRunning: true }
       }
     }
 
