@@ -149,184 +149,243 @@ export class NeonDatabaseService {
   private async createTables() {
     console.log("🔨 Creating database tables...")
 
-    const tables = [
-      {
-        name: "trades",
-        sql: `
-          CREATE TABLE IF NOT EXISTS trades (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            symbol VARCHAR(20) NOT NULL,
-            type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
-            amount DECIMAL(18, 8) NOT NULL,
-            price DECIMAL(18, 8) NOT NULL,
-            quantity DECIMAL(18, 8) NOT NULL,
-            profit DECIMAL(18, 8),
-            timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            status VARCHAR(10) NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
-            order_id BIGINT,
-            fees DECIMAL(18, 8) DEFAULT 0,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "bot_config",
-        sql: `
-          CREATE TABLE IF NOT EXISTS bot_config (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            initial_capital DECIMAL(18, 2) NOT NULL,
-            trade_percentage DECIMAL(5, 2) NOT NULL,
-            buy_threshold DECIMAL(5, 2) NOT NULL,
-            sell_threshold DECIMAL(5, 2) NOT NULL,
-            telegram_enabled BOOLEAN DEFAULT false,
-            max_daily_loss DECIMAL(5, 2) DEFAULT 10,
-            max_open_trades INTEGER DEFAULT 5,
-            stop_loss_percentage DECIMAL(5, 2) DEFAULT 5,
-            trading_pairs TEXT[] DEFAULT ARRAY['BTCUSDT', 'ETHUSDT', 'BNBUSDT'],
-            use_rsi BOOLEAN DEFAULT true,
-            use_macd BOOLEAN DEFAULT true,
-            use_sma BOOLEAN DEFAULT true,
-            is_active BOOLEAN DEFAULT false,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "bot_stats",
-        sql: `
-          CREATE TABLE IF NOT EXISTS bot_stats (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            total_capital DECIMAL(18, 2) NOT NULL,
-            trading_capital DECIMAL(18, 2) NOT NULL,
-            total_profit DECIMAL(18, 2) DEFAULT 0,
-            is_running BOOLEAN DEFAULT false,
-            trades_count INTEGER DEFAULT 0,
-            win_rate DECIMAL(5, 2) DEFAULT 0,
-            max_drawdown DECIMAL(5, 2) DEFAULT 0,
-            sharpe_ratio DECIMAL(8, 4) DEFAULT 0,
-            daily_loss DECIMAL(18, 2) DEFAULT 0,
-            last_reset_date DATE DEFAULT CURRENT_DATE,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "system_logs",
-        sql: `
-          CREATE TABLE IF NOT EXISTS system_logs (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            level VARCHAR(10) NOT NULL CHECK (level IN ('INFO', 'ERROR', 'WARNING', 'DEBUG')),
-            message TEXT NOT NULL,
-            details JSONB,
-            timestamp TIMESTAMPTZ DEFAULT NOW(),
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "market_data",
-        sql: `
-          CREATE TABLE IF NOT EXISTS market_data (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            symbol VARCHAR(20) NOT NULL,
-            price DECIMAL(18, 8) NOT NULL,
-            price_change_percent DECIMAL(8, 4) NOT NULL,
-            volume DECIMAL(20, 8) NOT NULL,
-            high DECIMAL(18, 8) NOT NULL,
-            low DECIMAL(18, 8) NOT NULL,
-            open_price DECIMAL(18, 8) NOT NULL,
-            bid_price DECIMAL(18, 8),
-            ask_price DECIMAL(18, 8),
-            rsi DECIMAL(8, 4),
-            macd_signal VARCHAR(10),
-            sma_signal VARCHAR(10),
-            volatility DECIMAL(8, 4),
-            timestamp TIMESTAMPTZ DEFAULT NOW(),
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "price_history",
-        sql: `
-          CREATE TABLE IF NOT EXISTS price_history (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            symbol VARCHAR(20) NOT NULL,
-            open_price DECIMAL(18, 8) NOT NULL,
-            high_price DECIMAL(18, 8) NOT NULL,
-            low_price DECIMAL(18, 8) NOT NULL,
-            close_price DECIMAL(18, 8) NOT NULL,
-            volume DECIMAL(20, 8) NOT NULL,
-            open_time TIMESTAMPTZ NOT NULL,
-            close_time TIMESTAMPTZ NOT NULL,
-            interval_type VARCHAR(10) NOT NULL DEFAULT '5m',
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "daily_performance",
-        sql: `
-          CREATE TABLE IF NOT EXISTS daily_performance (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            date DATE NOT NULL UNIQUE,
-            profit DECIMAL(18, 2) NOT NULL,
-            total_capital DECIMAL(18, 2) NOT NULL,
-            trades_count INTEGER NOT NULL,
-            win_rate DECIMAL(5, 2) DEFAULT 0,
-            max_drawdown DECIMAL(5, 2) DEFAULT 0,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "account_balances",
-        sql: `
-          CREATE TABLE IF NOT EXISTS account_balances (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            asset VARCHAR(10) NOT NULL,
-            free DECIMAL(18, 8) NOT NULL,
-            locked DECIMAL(18, 8) NOT NULL,
-            timestamp TIMESTAMPTZ DEFAULT NOW(),
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-    ]
-
-    // Create each table individually
-    for (const table of tables) {
-      try {
-        await this.sql`${table.sql}`
-        console.log(`✅ Created table: ${table.name}`)
-      } catch (error) {
-        console.warn(`⚠️ Table ${table.name} creation failed (might already exist):`, error.message)
-      }
+    // Create each table individually with proper neon syntax
+    console.log("📋 Creating trades table...")
+    try {
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS trades (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          symbol VARCHAR(20) NOT NULL,
+          type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
+          amount DECIMAL(18, 8) NOT NULL,
+          price DECIMAL(18, 8) NOT NULL,
+          quantity DECIMAL(18, 8) NOT NULL,
+          profit DECIMAL(18, 8),
+          timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          status VARCHAR(10) NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
+          order_id BIGINT,
+          fees DECIMAL(18, 8) DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: trades")
+    } catch (error: any) {
+      console.warn("⚠️ Table trades creation failed:", error.message)
+    }
+      console.log("📋 Creating bot_config table...")
+    try {
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS bot_config (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          initial_capital DECIMAL(18, 2) NOT NULL,
+          trade_percentage DECIMAL(5, 2) NOT NULL,
+          buy_threshold DECIMAL(5, 2) NOT NULL,
+          sell_threshold DECIMAL(5, 2) NOT NULL,
+          telegram_enabled BOOLEAN DEFAULT false,
+          max_daily_loss DECIMAL(5, 2) DEFAULT 10,
+          max_open_trades INTEGER DEFAULT 5,
+          stop_loss_percentage DECIMAL(5, 2) DEFAULT 5,
+          trading_pairs TEXT[] DEFAULT ARRAY['BTCUSDT', 'ETHUSDT', 'BNBUSDT'],
+          use_rsi BOOLEAN DEFAULT true,
+          use_macd BOOLEAN DEFAULT true,
+          use_sma BOOLEAN DEFAULT true,
+          is_active BOOLEAN DEFAULT false,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: bot_config")
+    } catch (error: any) {
+      console.warn("⚠️ Table bot_config creation failed:", error.message)
+    }
+      console.log("📋 Creating bot_stats table...")
+    try {
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS bot_stats (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          total_capital DECIMAL(18, 2) NOT NULL,
+          trading_capital DECIMAL(18, 2) NOT NULL,
+          total_profit DECIMAL(18, 2) DEFAULT 0,
+          is_running BOOLEAN DEFAULT false,
+          trades_count INTEGER DEFAULT 0,
+          win_rate DECIMAL(5, 2) DEFAULT 0,
+          max_drawdown DECIMAL(5, 2) DEFAULT 0,
+          sharpe_ratio DECIMAL(8, 4) DEFAULT 0,
+          daily_loss DECIMAL(18, 2) DEFAULT 0,
+          last_reset_date DATE DEFAULT CURRENT_DATE,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: bot_stats")
+    } catch (error: any) {
+      console.warn("⚠️ Table bot_stats creation failed:", error.message)
+    }
+      console.log("📋 Creating system_logs table...")
+    try {
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS system_logs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          level VARCHAR(10) NOT NULL CHECK (level IN ('INFO', 'ERROR', 'WARNING', 'DEBUG')),
+          message TEXT NOT NULL,
+          details JSONB,
+          timestamp TIMESTAMPTZ DEFAULT NOW(),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: system_logs")
+    } catch (error: any) {
+      console.warn("⚠️ Table system_logs creation failed:", error.message)
+    }
+      console.log("📋 Creating market_data table...")
+    try {
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS market_data (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          symbol VARCHAR(20) NOT NULL,
+          price DECIMAL(18, 8) NOT NULL,
+          price_change_percent DECIMAL(8, 4) NOT NULL,
+          volume DECIMAL(20, 8) NOT NULL,
+          high DECIMAL(18, 8) NOT NULL,
+          low DECIMAL(18, 8) NOT NULL,
+          open_price DECIMAL(18, 8) NOT NULL,
+          bid_price DECIMAL(18, 8),
+          ask_price DECIMAL(18, 8),
+          rsi DECIMAL(8, 4),
+          macd_signal VARCHAR(10),
+          sma_signal VARCHAR(10),
+          volatility DECIMAL(8, 4),
+          timestamp TIMESTAMPTZ DEFAULT NOW(),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: market_data")
+    } catch (error: any) {
+      console.warn("⚠️ Table market_data creation failed:", error.message)
+    }
+      console.log("📋 Creating price_history table...")
+    try {
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS price_history (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          symbol VARCHAR(20) NOT NULL,
+          open_price DECIMAL(18, 8) NOT NULL,
+          high_price DECIMAL(18, 8) NOT NULL,
+          low_price DECIMAL(18, 8) NOT NULL,
+          close_price DECIMAL(18, 8) NOT NULL,
+          volume DECIMAL(20, 8) NOT NULL,
+          open_time TIMESTAMPTZ NOT NULL,
+          close_time TIMESTAMPTZ NOT NULL,
+          interval_type VARCHAR(10) NOT NULL DEFAULT '5m',
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: price_history")
+    } catch (error: any) {
+      console.warn("⚠️ Table price_history creation failed:", error.message)
     }
 
-    // Create indexes individually
-    const indexes = [
-      "CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)",
-      "CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)",
-      "CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)",
-      "CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol)",
-      "CREATE INDEX IF NOT EXISTS idx_market_data_timestamp ON market_data(timestamp)",
-      "CREATE INDEX IF NOT EXISTS idx_price_history_symbol ON price_history(symbol)",
-      "CREATE INDEX IF NOT EXISTS idx_price_history_open_time ON price_history(open_time)",
-      "CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp)",
-      "CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level)",
-    ]
+    console.log("📋 Creating daily_performance table...")
+    try {
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS daily_performance (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          date DATE NOT NULL UNIQUE,
+          profit DECIMAL(18, 2) NOT NULL,
+          total_capital DECIMAL(18, 2) NOT NULL,
+          trades_count INTEGER NOT NULL,
+          win_rate DECIMAL(5, 2) DEFAULT 0,
+          max_drawdown DECIMAL(5, 2) DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: daily_performance")
+    } catch (error: any) {
+      console.warn("⚠️ Table daily_performance creation failed:", error.message)
+    }
 
-    for (const indexSql of indexes) {
-      try {
-        await this.sql`${indexSql}`
-        console.log(`✅ Created index`)
-      } catch (error) {
-        console.warn(`⚠️ Index creation failed (might already exist):`, error.message)
-      }
+    console.log("📋 Creating account_balances table...")
+    try {
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS account_balances (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          asset VARCHAR(10) NOT NULL,
+          free DECIMAL(18, 8) NOT NULL,
+          locked DECIMAL(18, 8) NOT NULL,
+          timestamp TIMESTAMPTZ DEFAULT NOW(),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: account_balances")
+    } catch (error: any) {
+      console.warn("⚠️ Table account_balances creation failed:", error.message)
+    }
+
+    // Create indexes individually with proper syntax
+    console.log("📋 Creating indexes...")
+    
+    try {
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)`
+      console.log("✅ Created index: idx_trades_symbol")
+    } catch (error: any) {
+      console.warn("⚠️ Index idx_trades_symbol creation failed:", error.message)
+    }
+
+    try {
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)`
+      console.log("✅ Created index: idx_trades_timestamp")
+    } catch (error: any) {
+      console.warn("⚠️ Index idx_trades_timestamp creation failed:", error.message)
+    }
+
+    try {
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)`
+      console.log("✅ Created index: idx_trades_status")
+    } catch (error: any) {
+      console.warn("⚠️ Index idx_trades_status creation failed:", error.message)
+    }
+
+    try {
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol)`
+      console.log("✅ Created index: idx_market_data_symbol")
+    } catch (error: any) {
+      console.warn("⚠️ Index idx_market_data_symbol creation failed:", error.message)
+    }
+
+    try {
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_market_data_timestamp ON market_data(timestamp)`
+      console.log("✅ Created index: idx_market_data_timestamp")
+    } catch (error: any) {
+      console.warn("⚠️ Index idx_market_data_timestamp creation failed:", error.message)
+    }
+
+    try {
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_price_history_symbol ON price_history(symbol)`
+      console.log("✅ Created index: idx_price_history_symbol")
+    } catch (error: any) {
+      console.warn("⚠️ Index idx_price_history_symbol creation failed:", error.message)
+    }
+
+    try {
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_price_history_open_time ON price_history(open_time)`
+      console.log("✅ Created index: idx_price_history_open_time")
+    } catch (error: any) {
+      console.warn("⚠️ Index idx_price_history_open_time creation failed:", error.message)
+    }
+
+    try {
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp)`
+      console.log("✅ Created index: idx_system_logs_timestamp")
+    } catch (error: any) {
+      console.warn("⚠️ Index idx_system_logs_timestamp creation failed:", error.message)
+    }
+
+    try {
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level)`
+      console.log("✅ Created index: idx_system_logs_level")  
+    } catch (error: any) {
+      console.warn("⚠️ Index idx_system_logs_level creation failed:", error.message)
     }
 
     // Create trigger function
@@ -345,26 +404,34 @@ export class NeonDatabaseService {
       console.warn("⚠️ Trigger function creation failed:", error.message)
     }
 
-    // Create triggers individually
-    const triggers = [
-      `DROP TRIGGER IF EXISTS update_trades_updated_at ON trades`,
-      `CREATE TRIGGER update_trades_updated_at BEFORE UPDATE ON trades
-       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`,
-      `DROP TRIGGER IF EXISTS update_bot_config_updated_at ON bot_config`,
-      `CREATE TRIGGER update_bot_config_updated_at BEFORE UPDATE ON bot_config
-       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`,
-      `DROP TRIGGER IF EXISTS update_bot_stats_updated_at ON bot_stats`,
-      `CREATE TRIGGER update_bot_stats_updated_at BEFORE UPDATE ON bot_stats
-       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`,
-    ]
+    // Create triggers individually with proper syntax
+    console.log("📋 Creating triggers...")
+    
+    try {
+      await this.sql`DROP TRIGGER IF EXISTS update_trades_updated_at ON trades`
+      await this.sql`CREATE TRIGGER update_trades_updated_at BEFORE UPDATE ON trades
+                     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`
+      console.log("✅ Created trigger: update_trades_updated_at")
+    } catch (error: any) {
+      console.warn("⚠️ Trigger update_trades_updated_at creation failed:", error.message)
+    }
 
-    for (const triggerSql of triggers) {
-      try {
-        await this.sql`${triggerSql}`
-        console.log("✅ Created/dropped trigger")
-      } catch (error) {
-        console.warn("⚠️ Trigger operation failed:", error.message)
-      }
+    try {
+      await this.sql`DROP TRIGGER IF EXISTS update_bot_config_updated_at ON bot_config`
+      await this.sql`CREATE TRIGGER update_bot_config_updated_at BEFORE UPDATE ON bot_config
+                     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`
+      console.log("✅ Created trigger: update_bot_config_updated_at")
+    } catch (error: any) {
+      console.warn("⚠️ Trigger update_bot_config_updated_at creation failed:", error.message)
+    }
+
+    try {
+      await this.sql`DROP TRIGGER IF EXISTS update_bot_stats_updated_at ON bot_stats`
+      await this.sql`CREATE TRIGGER update_bot_stats_updated_at BEFORE UPDATE ON bot_stats
+                     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`
+      console.log("✅ Created trigger: update_bot_stats_updated_at")
+    } catch (error: any) {
+      console.warn("⚠️ Trigger update_bot_stats_updated_at creation failed:", error.message)
     }
 
     console.log("✅ All database tables and indexes created successfully")
