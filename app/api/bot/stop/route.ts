@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server"
 
 export async function POST() {
@@ -26,22 +27,23 @@ export async function POST() {
       })
     }
 
-    // Stop the bot with force if needed
-    console.log("🛑 Bot məcburi dayandırılır...")
+    // Stop the bot
+    console.log("🛑 Bot dayandırılır...")
     let result
     try {
       result = await stopBot()
       console.log("✅ Bot dayandırma tamamlandı:", result)
     } catch (stopError) {
-      console.log("⚠️ Normal dayandırma uğursuz, məcburi dayandırma həyata keçirilir:", stopError?.message || stopError)
-      // Force database status update
+      console.error("⚠️ Bot dayandırma xətası:", stopError?.message || stopError)
+      
+      // Force database status update as fallback
       try {
         const { NeonDatabaseService } = await import("@/lib/neon-database-service")
         const database = new NeonDatabaseService()
         await database.updateBotStatus(false)
-        await database.addLog("WARNING", "Bot məcburi dayandırıldı - API vasitəsilə")
+        await database.addLog("WARNING", "Bot məcburi dayandırıldı - API vasitəsilə (fallback)")
         
-        // Clear any running intervals globally
+        // Global interval clearing
         if (typeof globalThis !== 'undefined') {
           const intervals = (globalThis as any)._intervals || []
           intervals.forEach((id: NodeJS.Timeout) => {
@@ -50,12 +52,12 @@ export async function POST() {
           ;(globalThis as any)._intervals = []
         }
         
-        result = { success: true, message: "Bot məcburi dayandırıldı", wasRunning: true }
-        console.log("✅ Məcburi dayandırma uğurlu")
+        console.log("✅ Fallback dayandırma tamamlandı")
+        result = { success: true, message: "Bot məcburi dayandırıldı (fallback)", wasRunning: true }
       } catch (forceError) {
-        console.error("Məcburi dayandırma da uğursuz:", forceError)
-        // Last resort - just return success
-        result = { success: true, message: "Bot dayandırıldı (force)", wasRunning: true }
+        console.error("Fallback dayandırma da uğursuz:", forceError)
+        // Return success anyway to prevent infinite loops
+        result = { success: true, message: "Bot dayandırıldı (forced)", wasRunning: true }
       }
     }
 
@@ -69,6 +71,17 @@ export async function POST() {
 
   } catch (error: any) {
     console.error("🚨 Bot dayandırma kritik xətası:", error)
+    
+    // Last resort force stop
+    try {
+      const { NeonDatabaseService } = await import("@/lib/neon-database-service")
+      const database = new NeonDatabaseService()
+      await database.updateBotStatus(false)
+      await database.addLog("ERROR", "Bot kritik xəta ilə dayandırıldı", {
+        error: error.message
+      })
+    } catch {}
+    
     return NextResponse.json(
       {
         success: false,

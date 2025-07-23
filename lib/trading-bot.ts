@@ -1,3 +1,4 @@
+
 import { BinanceTestnetService } from "./binance-testnet-service"
 import { NeonDatabaseService } from "./neon-database-service"
 import { TelegramService } from "./telegram-service"
@@ -123,8 +124,6 @@ export class TradingBot {
       }
 
       if (!binanceConnected) {
-        // This block will only be reached if testConnection returns false without throwing an error.
-        // Given the current error, it's more likely to throw, but keeping this for robustness.
         await this.database.addLog("ERROR", "Binance testnet bağlantısı uğursuz (testConnection false qaytardı).")
         throw new Error(
           "Binance testnet bağlantısı uğursuz. API key-ləri yoxlayın və testnet aktiv olduğundan əmin olun.",
@@ -631,7 +630,6 @@ export class TradingBot {
         )
       }
     } catch (error: any) {
-      // Explicitly type error as any
       await this.database.addLog("ERROR", `${symbol} alış xətası`, { error: error.message })
       throw error
     }
@@ -692,7 +690,6 @@ export class TradingBot {
         )
       }
     } catch (error: any) {
-      // Explicitly type error as any
       await this.database.addLog("ERROR", `${trade.symbol} satış xətası`, { error: error.message })
       throw error
     }
@@ -758,6 +755,7 @@ function getTradingBot(): TradingBot {
   return tradingBotInstance
 }
 
+// Fixed exports
 export const startBot = (config: BotConfig) => getTradingBot().start(config)
 export const stopBot = () => getTradingBot().stop()
 export const getBotStats = () => getTradingBot().getStats()
