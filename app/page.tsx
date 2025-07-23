@@ -172,8 +172,20 @@ export default function TradingBotDashboard() {
   const initializeDatabase = async () => {
     try {
       setLoading(true)
-      const response = await fetch("/api/db/init", { method: "POST" })
+      console.log("Database initialization başlayır...")
+      const response = await fetch("/api/db/init", { 
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
+      console.log("Database response:", data)
 
       if (data.success) {
         setDbStatus({ status: "healthy", database: "connected", message: "İnisializasiya edildi" })
