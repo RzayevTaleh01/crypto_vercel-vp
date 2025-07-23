@@ -107,18 +107,28 @@ export class MarketAnalyzer {
     // Immediately set running to false
     this.isRunning = false
 
-    // Clear analysis interval
+    // Clear analysis interval with safety check
     if (this.analysisInterval) {
-      clearInterval(this.analysisInterval)
-      this.analysisInterval = null
-      console.log("✅ Analysis interval cleared")
+      try {
+        clearInterval(this.analysisInterval)
+        this.analysisInterval = null
+        console.log("✅ Analysis interval cleared")
+      } catch (error) {
+        console.warn("Warning clearing analysis interval:", error)
+        this.analysisInterval = null
+      }
     }
 
-    // Clear pair update interval
+    // Clear pair update interval with safety check
     if (this.pairUpdateInterval) {
-      clearInterval(this.pairUpdateInterval)
-      this.pairUpdateInterval = null
-      console.log("✅ Pair update interval cleared")
+      try {
+        clearInterval(this.pairUpdateInterval)
+        this.pairUpdateInterval = null
+        console.log("✅ Pair update interval cleared")
+      } catch (error) {
+        console.warn("Warning clearing pair update interval:", error)
+        this.pairUpdateInterval = null
+      }
     }
 
     // Clear symbols array

@@ -7,6 +7,6 @@ export async function GET() {
     return NextResponse.json(history || [])
   } catch (error) {
     console.error("Trade history xətası:", error)
-    return NextResponse.json([])
+    return NextResponse.json([], { status: 500 })
   }
 }

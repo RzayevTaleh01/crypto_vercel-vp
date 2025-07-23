@@ -91,6 +91,8 @@ export class TradingBot {
     } catch (error) {
       console.warn("⚠️ Database update failed during force stop:", error)
     }
+
+    console.log("✅ Force stop completed")
   }
 
   async start(config: BotConfig) {
@@ -467,10 +469,15 @@ export class TradingBot {
         nextPairUpdate: pairStats.nextUpdate,
       })
     } catch (error: any) {
-      await this.database.addLog("ERROR", "Trading logic kritik xəta", { 
-        error: error.message,
-        stack: error.stack?.slice(0, 500),
-      })
+      console.error("Trading logic critical error:", error)
+      try {
+        await this.database.addLog("ERROR", "Trading logic kritik xəta", { 
+          error: error.message,
+          stack: error.stack?.slice(0, 500),
+        })
+      } catch (logError) {
+        console.error("Failed to log trading error:", logError)
+      }
     }
   }
 
@@ -750,7 +757,7 @@ export const getBotStats = () => tradingBot.getStats()
 export const getTradeHistory = () => tradingBot.getTradeHistory()
 export const getOpenTrades = () => tradingBot.getOpenTrades()
 export const getBotLogs = () => tradingBot.getLogs()
-export const isBotRunning = async () => await tradingBot.isRunning()
+export const isBotRunning = () => tradingBot.isRunning()
 export const getCurrentTradingPairs = () => tradingBot.getCurrentTradingPairs()
 export const getPairSelectionStats = () => tradingBot.getPairSelectionStats()
 export const refreshTradingPairs = () => tradingBot.refreshTradingPairs()

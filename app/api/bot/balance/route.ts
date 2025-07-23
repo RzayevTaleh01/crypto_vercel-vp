@@ -8,16 +8,17 @@ export async function GET() {
   } catch (error) {
     console.error("Stats xətası:", error)
     return NextResponse.json({
-      totalCapital: 20,
-      tradingCapital: 2,
+      totalCapital: 100,
+      tradingCapital: 10,
       totalProfit: 0,
       isRunning: false,
       tradesCount: 0,
       winRate: 0,
       maxDrawdown: 0,
       sharpeRatio: 0,
+      dailyLoss: 0,
       status: "error",
-      error: error.message,
+      error: error instanceof Error ? error.message : "Naməlum xəta",
     })
   }
 }

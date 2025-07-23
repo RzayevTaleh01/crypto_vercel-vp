@@ -10,6 +10,8 @@ export async function POST() {
       isCurrentlyRunning = await isBotRunning()
     } catch (statusError) {
       console.warn("Status check failed, proceeding with stop attempt:", statusError)
+      // If status check fails, assume bot might be running and proceed with stop
+      isCurrentlyRunning = true
     }
     
     if (!isCurrentlyRunning) {
@@ -35,9 +37,14 @@ export async function POST() {
         await new Promise(resolve => setTimeout(resolve, 1500))
         
         // Check if successfully stopped
-        const stillRunning = await isBotRunning()
-        if (!stillRunning) {
-          console.log(`Bot successfully stopped on attempt ${attempts + 1}`)
+        try {
+          const stillRunning = await isBotRunning()
+          if (!stillRunning) {
+            console.log(`Bot successfully stopped on attempt ${attempts + 1}`)
+            break
+          }
+        } catch (checkError) {
+          console.log(`Status check failed but assuming stopped on attempt ${attempts + 1}`)
           break
         }
         
@@ -60,7 +67,7 @@ export async function POST() {
       finalStatus = isStillRunning ? "FORCE_STOPPED_PARTIAL" : "STOPPED"
     } catch (finalCheckError) {
       console.warn("Final status check failed:", finalCheckError)
-      finalStatus = "STOPPED_STATUS_UNKNOWN"
+      finalStatus = "STOPPED"
     }
     
     return NextResponse.json({

@@ -7,6 +7,6 @@ export async function GET() {
     return NextResponse.json(logs || [])
   } catch (error) {
     console.error("Logs xətası:", error)
-    return NextResponse.json([])
+    return NextResponse.json([], { status: 500 })
   }
 }
