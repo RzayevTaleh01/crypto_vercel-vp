@@ -9,7 +9,9 @@ export async function POST() {
     // Check if bot is running first
     let isCurrentlyRunning = false
     try {
-      isCurrentlyRunning = await isBotRunning()
+      const botInstance = await import("@/lib/trading-bot")
+      const tradingBot = botInstance.default || botInstance
+      isCurrentlyRunning = await tradingBot.isBotRunning()
       console.log(`Bot hazırda işləyir: ${isCurrentlyRunning}`)
     } catch (statusError) {
       console.log("Status yoxlama xətası, davam edirik:", statusError.message)
