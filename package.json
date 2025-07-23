@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
     "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "next lint",
-    "start": "next start"
+    "db:init": "tsx scripts/init-database.ts",
+    "db:setup": "tsx scripts/setup-database.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

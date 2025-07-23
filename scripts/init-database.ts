@@ -1,28 +1,26 @@
 
-import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
-export async function POST() {
+async function initializeDatabase() {
+  console.log("🚀 Starting database initialization...")
+
+  if (!process.env.DATABASE_URL) {
+    console.error("❌ DATABASE_URL environment variable is required")
+    console.log("Please add your Neon database URL to .env.local:")
+    console.log("DATABASE_URL=postgresql://username:password@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require")
+    process.exit(1)
+  }
+
+  const sql = neon(process.env.DATABASE_URL)
+
   try {
-    if (!process.env.DATABASE_URL) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "DATABASE_URL environment variable tapılmadı",
-        },
-        { status: 500 }
-      )
-    }
-
-    const sql = neon(process.env.DATABASE_URL)
-
-    console.log("🚀 Database initialization başlayır...")
-
-    // Test connection
+    console.log("🔗 Testing database connection...")
     await sql`SELECT 1`
-    console.log("✅ Database bağlantısı uğurlu")
+    console.log("✅ Database connection successful")
 
-    // Create tables
+    console.log("📋 Creating tables...")
+
+    // Create tables one by one with error handling
     const tables = [
       {
         name: "bot_stats",
@@ -171,15 +169,12 @@ export async function POST() {
       },
     ]
 
-    const createdTables = []
     for (const table of tables) {
       try {
         await sql([table.sql])
-        createdTables.push(table.name)
         console.log(`✅ Created table: ${table.name}`)
       } catch (error: any) {
-        console.warn(`⚠️ Table ${table.name} creation warning:`, error.message)
-        // Continue with other tables even if one fails
+        console.warn(`⚠️ Table ${table.name}:`, error.message)
       }
     }
 
@@ -201,80 +196,56 @@ export async function POST() {
         await sql([indexSql])
         console.log("✅ Created index")
       } catch (error: any) {
-        console.warn("⚠️ Index creation warning:", error.message)
-      }
-    }
-
-    // Create trigger function
-    try {
-      await sql([
-        `
-        CREATE OR REPLACE FUNCTION update_updated_at_column()
-        RETURNS TRIGGER AS $$
-        BEGIN
-            NEW.updated_at = NOW();
-            RETURN NEW;
-        END;
-        $$ language 'plpgsql'
-      `,
-      ])
-      console.log("✅ Created trigger function")
-    } catch (error: any) {
-      console.warn("⚠️ Trigger function creation warning:", error.message)
-    }
-
-    // Create triggers
-    const triggers = [
-      `DROP TRIGGER IF EXISTS update_trades_updated_at ON trades`,
-      `CREATE TRIGGER update_trades_updated_at BEFORE UPDATE ON trades
-       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`,
-      `DROP TRIGGER IF EXISTS update_bot_config_updated_at ON bot_config`,
-      `CREATE TRIGGER update_bot_config_updated_at BEFORE UPDATE ON bot_config
-       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`,
-      `DROP TRIGGER IF EXISTS update_bot_stats_updated_at ON bot_stats`,
-      `CREATE TRIGGER update_bot_stats_updated_at BEFORE UPDATE ON bot_stats
-       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`,
-    ]
-
-    for (const triggerSql of triggers) {
-      try {
-        await sql([triggerSql])
-        console.log("✅ Created/dropped trigger")
-      } catch (error: any) {
-        console.warn("⚠️ Trigger operation warning:", error.message)
+        console.warn("⚠️ Index creation:", error.message)
       }
     }
 
     // Initialize default stats
-    const existingStats = await sql`SELECT id FROM bot_stats LIMIT 1`
-    if (existingStats.length === 0) {
-      await sql`
-        INSERT INTO bot_stats (
-          total_capital, trading_capital, total_profit, is_running, 
-          trades_count, win_rate, max_drawdown, sharpe_ratio, daily_loss
-        ) VALUES (20, 2, 0, false, 0, 0, 0, 0, 0)
-      `
-      console.log("✅ Initialized default bot stats")
+    console.log("📊 Initializing bot stats...")
+    try {
+      const existingStats = await sql`SELECT id FROM bot_stats LIMIT 1`
+
+      if (existingStats.length === 0) {
+        await sql`
+          INSERT INTO bot_stats (
+            total_capital, trading_capital, total_profit, is_running, 
+            trades_count, win_rate, max_drawdown, sharpe_ratio, daily_loss
+          ) VALUES (20, 2, 0, false, 0, 0, 0, 0, 0)
+        `
+        console.log("✅ Initialized default bot stats")
+      } else {
+        console.log("✅ Bot stats already exist")
+      }
+    } catch (error: any) {
+      console.warn("⚠️ Stats initialization:", error.message)
     }
 
-    console.log("🎉 Database initialization tamamlandı!")
+    // Test the setup
+    console.log("🧪 Testing setup...")
+    const stats = await sql`SELECT * FROM bot_stats LIMIT 1`
 
-    return NextResponse.json({
-      success: true,
-      message: "Database uğurla hazırlandı və bütün tabllar yaradıldı",
-      tables: createdTables,
-      totalTables: createdTables.length,
-    })
+    if (stats.length > 0) {
+      console.log("✅ Database setup completed successfully!")
+      console.log("📈 Current stats:", {
+        totalCapital: Number(stats[0].total_capital),
+        tradingCapital: Number(stats[0].trading_capital),
+        isRunning: stats[0].is_running,
+      })
+    } else {
+      throw new Error("Stats table is empty")
+    }
 
+    console.log("\n🎉 Database hazırdır! İndi interface-dən istifadə edə bilərsiniz.")
+    process.exit(0)
   } catch (error: any) {
-    console.error("❌ Database init error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Database init xətası: ${error.message}`,
-        details: error,
-      },
-      { status: 500 }
-    )
+    console.error("❌ Database setup failed:", error.message)
+    console.log("\n🔧 Troubleshooting:")
+    console.log("1. Check your DATABASE_URL in .env.local")
+    console.log("2. Verify your Neon project is active")
+    console.log("3. Ensure your IP is allowed (if IP restrictions are enabled)")
+    console.log("4. Try running: npm run dev (then visit /api/db/init)")
+    process.exit(1)
   }
 }
+
+initializeDatabase()
