@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
@@ -24,175 +25,205 @@ export async function POST() {
     const createdTables: string[] = []
 
     // Create tables one by one
-    const tables = [
-      {
-        name: "bot_stats",
-        sql: `
-          CREATE TABLE IF NOT EXISTS bot_stats (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            total_capital DECIMAL(18, 2) NOT NULL DEFAULT 20,
-            trading_capital DECIMAL(18, 2) NOT NULL DEFAULT 2,
-            total_profit DECIMAL(18, 2) DEFAULT 0,
-            is_running BOOLEAN DEFAULT false,
-            trades_count INTEGER DEFAULT 0,
-            win_rate DECIMAL(5, 2) DEFAULT 0,
-            max_drawdown DECIMAL(5, 2) DEFAULT 0,
-            sharpe_ratio DECIMAL(8, 4) DEFAULT 0,
-            daily_loss DECIMAL(18, 2) DEFAULT 0,
-            last_reset_date DATE DEFAULT CURRENT_DATE,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "trades",
-        sql: `
-          CREATE TABLE IF NOT EXISTS trades (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            symbol VARCHAR(20) NOT NULL,
-            type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
-            amount DECIMAL(18, 8) NOT NULL,
-            price DECIMAL(18, 8) NOT NULL,
-            quantity VARCHAR(50) NOT NULL,
-            profit DECIMAL(18, 8),
-            timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            status VARCHAR(10) NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
-            order_id BIGINT,
-            fees DECIMAL(18, 8) DEFAULT 0,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "bot_config",
-        sql: `
-          CREATE TABLE IF NOT EXISTS bot_config (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            initial_capital DECIMAL(18, 2) NOT NULL,
-            trade_percentage DECIMAL(5, 2) NOT NULL,
-            buy_threshold DECIMAL(5, 2) NOT NULL,
-            sell_threshold DECIMAL(5, 2) NOT NULL,
-            telegram_enabled BOOLEAN DEFAULT false,
-            max_daily_loss DECIMAL(5, 2) DEFAULT 10,
-            max_open_trades INTEGER DEFAULT 5,
-            stop_loss_percentage DECIMAL(5, 2) DEFAULT 5,
-            trading_pairs TEXT[] DEFAULT ARRAY['BTCUSDT', 'ETHUSDT', 'BNBUSDT'],
-            use_rsi BOOLEAN DEFAULT true,
-            use_macd BOOLEAN DEFAULT true,
-            use_sma BOOLEAN DEFAULT true,
-            is_active BOOLEAN DEFAULT false,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "system_logs",
-        sql: `
-          CREATE TABLE IF NOT EXISTS system_logs (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            level VARCHAR(10) NOT NULL CHECK (level IN ('INFO', 'ERROR', 'WARNING', 'DEBUG')),
-            message TEXT NOT NULL,
-            details JSONB,
-            timestamp TIMESTAMPTZ DEFAULT NOW(),
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "market_data",
-        sql: `
-          CREATE TABLE IF NOT EXISTS market_data (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            symbol VARCHAR(20) NOT NULL,
-            price DECIMAL(18, 8) NOT NULL,
-            price_change_percent DECIMAL(8, 4) NOT NULL,
-            volume DECIMAL(20, 8) NOT NULL,
-            high DECIMAL(18, 8) NOT NULL,
-            low DECIMAL(18, 8) NOT NULL,
-            open_price DECIMAL(18, 8) NOT NULL,
-            bid_price DECIMAL(18, 8),
-            ask_price DECIMAL(18, 8),
-            rsi DECIMAL(8, 4),
-            macd_signal VARCHAR(10),
-            sma_signal VARCHAR(10),
-            volatility DECIMAL(8, 4),
-            timestamp TIMESTAMPTZ DEFAULT NOW(),
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "price_history",
-        sql: `
-          CREATE TABLE IF NOT EXISTS price_history (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            symbol VARCHAR(20) NOT NULL,
-            open_price DECIMAL(18, 8) NOT NULL,
-            high_price DECIMAL(18, 8) NOT NULL,
-            low_price DECIMAL(18, 8) NOT NULL,
-            close_price DECIMAL(18, 8) NOT NULL,
-            volume DECIMAL(20, 8) NOT NULL,
-            open_time TIMESTAMPTZ NOT NULL,
-            close_time TIMESTAMPTZ NOT NULL,
-            interval_type VARCHAR(10) NOT NULL DEFAULT '5m',
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "daily_performance",
-        sql: `
-          CREATE TABLE IF NOT EXISTS daily_performance (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            date DATE NOT NULL UNIQUE,
-            profit DECIMAL(18, 2) NOT NULL,
-            total_capital DECIMAL(18, 2) NOT NULL,
-            trades_count INTEGER NOT NULL,
-            win_rate DECIMAL(5, 2) DEFAULT 0,
-            max_drawdown DECIMAL(5, 2) DEFAULT 0,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-      {
-        name: "account_balances",
-        sql: `
-          CREATE TABLE IF NOT EXISTS account_balances (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            asset VARCHAR(10) NOT NULL,
-            free DECIMAL(18, 8) NOT NULL,
-            locked DECIMAL(18, 8) NOT NULL,
-            timestamp TIMESTAMPTZ DEFAULT NOW(),
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          )
-        `,
-      },
-    ]
+    console.log("📋 Creating tables...")
 
-    for (const table of tables) {
-      try {
-        await sql([table.sql])
-        console.log(`✅ Created table: ${table.name}`)
-        createdTables.push(table.name)
-      } catch (error: any) {
-        console.warn(`⚠️ Table ${table.name}:`, error.message)
-      }
+    // Bot stats table
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS bot_stats (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          total_capital DECIMAL(18, 2) NOT NULL DEFAULT 20,
+          trading_capital DECIMAL(18, 2) NOT NULL DEFAULT 2,
+          total_profit DECIMAL(18, 2) DEFAULT 0,
+          is_running BOOLEAN DEFAULT false,
+          trades_count INTEGER DEFAULT 0,
+          win_rate DECIMAL(5, 2) DEFAULT 0,
+          max_drawdown DECIMAL(5, 2) DEFAULT 0,
+          sharpe_ratio DECIMAL(8, 4) DEFAULT 0,
+          daily_loss DECIMAL(18, 2) DEFAULT 0,
+          last_reset_date DATE DEFAULT CURRENT_DATE,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: bot_stats")
+      createdTables.push("bot_stats")
+    } catch (error: any) {
+      console.warn("⚠️ Table bot_stats:", error.message)
+    }
+
+    // Trades table
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS trades (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          symbol VARCHAR(20) NOT NULL,
+          type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
+          amount DECIMAL(18, 8) NOT NULL,
+          price DECIMAL(18, 8) NOT NULL,
+          quantity VARCHAR(50) NOT NULL,
+          profit DECIMAL(18, 8),
+          timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          status VARCHAR(10) NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
+          order_id BIGINT,
+          fees DECIMAL(18, 8) DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: trades")
+      createdTables.push("trades")
+    } catch (error: any) {
+      console.warn("⚠️ Table trades:", error.message)
+    }
+
+    // Bot config table
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS bot_config (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          initial_capital DECIMAL(18, 2) NOT NULL,
+          trade_percentage DECIMAL(5, 2) NOT NULL,
+          buy_threshold DECIMAL(5, 2) NOT NULL,
+          sell_threshold DECIMAL(5, 2) NOT NULL,
+          telegram_enabled BOOLEAN DEFAULT false,
+          max_daily_loss DECIMAL(5, 2) DEFAULT 10,
+          max_open_trades INTEGER DEFAULT 5,
+          stop_loss_percentage DECIMAL(5, 2) DEFAULT 5,
+          trading_pairs TEXT[] DEFAULT ARRAY['BTCUSDT', 'ETHUSDT', 'BNBUSDT'],
+          use_rsi BOOLEAN DEFAULT true,
+          use_macd BOOLEAN DEFAULT true,
+          use_sma BOOLEAN DEFAULT true,
+          is_active BOOLEAN DEFAULT false,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: bot_config")
+      createdTables.push("bot_config")
+    } catch (error: any) {
+      console.warn("⚠️ Table bot_config:", error.message)
+    }
+
+    // System logs table
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS system_logs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          level VARCHAR(10) NOT NULL CHECK (level IN ('INFO', 'ERROR', 'WARNING', 'DEBUG')),
+          message TEXT NOT NULL,
+          details JSONB,
+          timestamp TIMESTAMPTZ DEFAULT NOW(),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: system_logs")
+      createdTables.push("system_logs")
+    } catch (error: any) {
+      console.warn("⚠️ Table system_logs:", error.message)
+    }
+
+    // Market data table
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS market_data (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          symbol VARCHAR(20) NOT NULL,
+          price DECIMAL(18, 8) NOT NULL,
+          price_change_percent DECIMAL(8, 4) NOT NULL,
+          volume DECIMAL(20, 8) NOT NULL,
+          high DECIMAL(18, 8) NOT NULL,
+          low DECIMAL(18, 8) NOT NULL,
+          open_price DECIMAL(18, 8) NOT NULL,
+          bid_price DECIMAL(18, 8),
+          ask_price DECIMAL(18, 8),
+          rsi DECIMAL(8, 4),
+          macd_signal VARCHAR(10),
+          sma_signal VARCHAR(10),
+          volatility DECIMAL(8, 4),
+          timestamp TIMESTAMPTZ DEFAULT NOW(),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: market_data")
+      createdTables.push("market_data")
+    } catch (error: any) {
+      console.warn("⚠️ Table market_data:", error.message)
+    }
+
+    // Price history table
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS price_history (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          symbol VARCHAR(20) NOT NULL,
+          open_price DECIMAL(18, 8) NOT NULL,
+          high_price DECIMAL(18, 8) NOT NULL,
+          low_price DECIMAL(18, 8) NOT NULL,
+          close_price DECIMAL(18, 8) NOT NULL,
+          volume DECIMAL(20, 8) NOT NULL,
+          open_time TIMESTAMPTZ NOT NULL,
+          close_time TIMESTAMPTZ NOT NULL,
+          interval_type VARCHAR(10) NOT NULL DEFAULT '5m',
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: price_history")
+      createdTables.push("price_history")
+    } catch (error: any) {
+      console.warn("⚠️ Table price_history:", error.message)
+    }
+
+    // Daily performance table
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS daily_performance (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          date DATE NOT NULL UNIQUE,
+          profit DECIMAL(18, 2) NOT NULL,
+          total_capital DECIMAL(18, 2) NOT NULL,
+          trades_count INTEGER NOT NULL,
+          win_rate DECIMAL(5, 2) DEFAULT 0,
+          max_drawdown DECIMAL(5, 2) DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: daily_performance")
+      createdTables.push("daily_performance")
+    } catch (error: any) {
+      console.warn("⚠️ Table daily_performance:", error.message)
+    }
+
+    // Account balances table
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS account_balances (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          asset VARCHAR(10) NOT NULL,
+          free DECIMAL(18, 8) NOT NULL,
+          locked DECIMAL(18, 8) NOT NULL,
+          timestamp TIMESTAMPTZ DEFAULT NOW(),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      console.log("✅ Created table: account_balances")
+      createdTables.push("account_balances")
+    } catch (error: any) {
+      console.warn("⚠️ Table account_balances:", error.message)
     }
 
     // Create indexes
+    console.log("📋 Creating indexes...")
     const indexes = [
-      "CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)",
-      "CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)",
-      "CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)",
-      "CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol)",
-      "CREATE INDEX IF NOT EXISTS idx_market_data_timestamp ON market_data(timestamp)",
-      "CREATE INDEX IF NOT EXISTS idx_price_history_symbol ON price_history(symbol)",
-      "CREATE INDEX IF NOT EXISTS idx_price_history_open_time ON price_history(open_time)",
-      "CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp)",
-      "CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level)",
+      `CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)`,
+      `CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)`,
+      `CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data(symbol)`,
+      `CREATE INDEX IF NOT EXISTS idx_market_data_timestamp ON market_data(timestamp)`,
+      `CREATE INDEX IF NOT EXISTS idx_price_history_symbol ON price_history(symbol)`,
+      `CREATE INDEX IF NOT EXISTS idx_price_history_open_time ON price_history(open_time)`,
+      `CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp)`,
+      `CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level)`,
     ]
 
     for (const indexSql of indexes) {
@@ -204,47 +235,8 @@ export async function POST() {
       }
     }
 
-    // Create trigger function
-    try {
-      await sql([
-        `
-        CREATE OR REPLACE FUNCTION update_updated_at_column()
-        RETURNS TRIGGER AS $$
-        BEGIN
-            NEW.updated_at = NOW();
-            RETURN NEW;
-        END;
-        $$ language 'plpgsql'
-      `,
-      ])
-      console.log("✅ Created trigger function")
-    } catch (error: any) {
-      console.warn("⚠️ Trigger function creation warning:", error.message)
-    }
-
-    // Create triggers
-    const triggers = [
-      `DROP TRIGGER IF EXISTS update_trades_updated_at ON trades`,
-      `CREATE TRIGGER update_trades_updated_at BEFORE UPDATE ON trades
-       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`,
-      `DROP TRIGGER IF EXISTS update_bot_config_updated_at ON bot_config`,
-      `CREATE TRIGGER update_bot_config_updated_at BEFORE UPDATE ON bot_config
-       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`,
-      `DROP TRIGGER IF EXISTS update_bot_stats_updated_at ON bot_stats`,
-      `CREATE TRIGGER update_bot_stats_updated_at BEFORE UPDATE ON bot_stats
-       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`,
-    ]
-
-    for (const triggerSql of triggers) {
-      try {
-        await sql([triggerSql])
-        console.log("✅ Created/dropped trigger")
-      } catch (error: any) {
-        console.warn("⚠️ Trigger operation warning:", error.message)
-      }
-    }
-
     // Initialize default stats
+    console.log("📊 Initializing bot stats...")
     const existingStats = await sql`SELECT id FROM bot_stats LIMIT 1`
     if (existingStats.length === 0) {
       await sql`
