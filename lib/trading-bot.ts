@@ -1,4 +1,3 @@
-
 import { BinanceTestnetService } from "./binance-testnet-service"
 import { NeonDatabaseService } from "./neon-database-service"
 import { TelegramService } from "./telegram-service"
